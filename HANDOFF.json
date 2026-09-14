@@ -1,0 +1,965 @@
+{
+  "meta": {
+    "project": "Two Salesforce projects that both get called 'HXL' - Headless Identity (Track A) and Headless Experience Layer (Track B)",
+    "purpose_of_this_file": "Complete portable handoff for BOTH tracks. Everything needed to move this directory to another machine and resume with full context.",
+    "generated": "2026-09-06, updated 2026-09-12 (Phase 2)",
+    "source_directory": "D:\\personal",
+    "schema_version": 3,
+    "companion_documents": {
+      "README.md (root)": "THE MAP. Explains the naming collision and how the two tracks fit together. Read first.",
+      "hxl-demo/README.md": "Track A: pitch, the four flows, demo script, troubleshooting.",
+      "hxl-demo/SETUP.md": "Track A: happy-path org setup, 12 steps, start to finish.",
+      "hxl-demo/HXL_ORG_CONTEXT.md": "Track A's most important file. Live org facts, nine divergences, dead ends.",
+      "hxl-experience-layer/README.md": "Track B: what's built, how to run it, and the five findings from building it.",
+      "HXL_Handoff.docx / HANDOFF.json": "This handoff - a digest of everything above, covering both tracks.",
+      "EXECUTIVE_SUMMARY_PHASE2.md / .docx": "Phase 2 executive summary (12 Sep 2026): what is proven, the View All finding, hosts, blockers, the ask.",
+      "PRESENTATION.md / HXL_POC_Phase2.pptx": "Slides, speaker script, 12-minute demo run-of-show with per-beat verified/unverified status, ranked ideas, Q&A table, Track A demo beats. The single demo document.",
+      "TRACK_B_BUILD_PATH.md / TRACK_B_SETUP.md / TRACK_B_ORG_CONTEXT.md": "Track B: the 8-step build path, the happy-path setup for three hosts, and verified divergences.",
+      "TRACK_B_HOST_VERIFICATION.md": "Per-host procedure and targets (Claude Desktop, ChatGPT/Codex, Slack) plus the table of what was actually verified on 12 Sep.",
+      "SETUP_NEW_MACHINE.md": "Copy this folder to another device: tools, org login, env files, org-state checks, software proof, host wiring."
+    },
+    "secrets_warning": "No secrets are contained in this file. SF_CLIENT_ID and SF_CLIENT_SECRET live only in .env, which is gitignored and NOT included here. Transfer .env separately over a secure channel."
+  },
+  "naming_collision": {
+    "why_this_section_is_first": "Two unrelated Salesforce features in this folder are both abbreviated 'HXL' in conversation. Conflating them in front of a reviewer is the easiest avoidable mistake in this project.",
+    "track_a": {
+      "real_name": "Salesforce Headless Identity",
+      "folder": "hxl-demo/ (legacy name - predates the discovery of the collision)",
+      "what_it_does": "Logs a customer in with no Salesforce-hosted UI - no redirect, no *.force.com login page.",
+      "unit_of_work": "An OAuth flow against an Experience Cloud site",
+      "maturity": "GA. Documented, has a Trailhead module.",
+      "status": "Login + Contact-scoped data working end to end. 3 of 4 flows blocked, fully diagnosed."
+    },
+    "track_b": {
+      "real_name": "Salesforce Headless Experience Layer (HXL)",
+      "folder": "hxl-experience-layer/",
+      "what_it_does": "Describe a UI once as Mosaic JSON; Slack, Agentforce, ChatGPT and Claude each render it natively.",
+      "unit_of_work": "A widget bundle + an MCP server",
+      "maturity": "Beta. Org access rolled out early August 2026.",
+      "status": "Widget deployed; MCP server v1.1.0 with identity PER CHAT SESSION (sign_in/sign_out/whoami), stdio + Streamable HTTP (/mcp/chatgpt, /mcp/slack), verified with a real MCP client over a public cloudflared URL. Tools: get_my_orders, get_order, search_orders, cancel_order, place_order. Host render (Claude Desktop / ChatGPT / Slack) still not confirmed - hosts not installed/connected on the build machine."
+    },
+    "one_line_test": "If it is about WHO the user is, it is Track A. If it is about WHERE the UI shows up, it is Track B.",
+    "how_they_fit_together": "HXL renders an agent's UI on any surface but does not answer who is asking. The default agent integration runs as an integration user - one credential with broad visibility, where the agent decides what to reveal, which is the design security teams reject. Track A supplies a named-user token instead, so the widget shows one specific customer's data with Salesforce sharing enforcing it. Neither track can make that claim alone."
+  },
+  "executive_summary": {
+    "what_it_is": "A working demo of Salesforce Headless Identity: a custom front end with Salesforce behind it and no Salesforce UI anywhere. Users authenticate and read their own records without ever seeing a Salesforce-hosted page or a *.force.com redirect.",
+    "the_argument": "Salesforce keeps identity, sharing and data. You keep the entire experience. The UI does not have to look like, or be built with, Salesforce.",
+    "architecture": "browser -> (HttpOnly session cookie) -> Node BFF (this repo, holds client secret + tokens) -> (OAuth + Bearer) -> Salesforce Experience Cloud site + Apex REST",
+    "why_a_BFF": "The browser never receives a client id, a client secret or an access token - only an opaque session cookie. That is the difference between a headless *layer* and shipping OAuth into a browser.",
+    "current_completion": "Roughly 60% of the intended demo. The core architectural argument is provable today; three of four identity flows are blocked on org configuration, not on code."
+  },
+  "status": {
+    "working_end_to_end": [
+      {
+        "item": "Headless Login flow (username + password, PKCE S256)",
+        "evidence": "POST /api/login -> 200, refresh token issued"
+      },
+      {
+        "item": "Identity resolution",
+        "evidence": "GET /api/me -> 200, ada.hxl@hxlpoc.demo, contactId 003g800000fQI05AAG"
+      },
+      {
+        "item": "Contact-scoped data read",
+        "evidence": "3 own orders returned; another contact's $9,999 order correctly absent"
+      },
+      {
+        "item": "Authenticated write",
+        "evidence": "POST /api/orders -> 201, ORD-00004 created"
+      },
+      {
+        "item": "Token custody in the layer",
+        "evidence": "Browser holds only the hxl_sid HttpOnly cookie; tokenSummary() sends a preview, never the token"
+      },
+      {
+        "item": "Wire log / observability",
+        "evidence": "HXL_DEBUG=1 prints every Salesforce request and response; the UI panel mirrors it"
+      }
+    ],
+    "blocked": [
+      {
+        "item": "Headless Registration",
+        "reason": "init endpoint authentication wall - see The init endpoint wall"
+      },
+      {
+        "item": "Headless Passwordless Login",
+        "reason": "same"
+      },
+      {
+        "item": "Headless Forgot Password",
+        "reason": "same"
+      }
+    ],
+    "note_on_blocked": "The client code for all three flows is written and believed correct (app/hxl.js, app/server.js, app/public/app.js). They are blocked on org and platform configuration, not on missing implementation.",
+    "not_started": [
+      "The differentiating capability layer (see The open decision) - no code written yet.",
+      "Client attestation certificate + JWT signing for the first-party route.",
+      "Any production hardening: Redis session store, Secure cookies, TLS, CSRF, refresh rotation."
+    ]
+  },
+  "track_b": {
+    "what_it_is": "Salesforce Headless Experience Layer - one widget definition in Mosaic JSON, rendered natively by any MCP host.",
+    "folder": "hxl-experience-layer/",
+    "built_from_scratch_on": "2026-09-06",
+    "status": [
+      {
+        "piece": "UiWidgetBundle deployed to the org",
+        "state": "WORKING",
+        "evidence": "hxlOrderCard; second button is now \"Cancel latest order\"; redeployed 2026-09-12"
+      },
+      {
+        "piece": "MCP server, tools and resources",
+        "state": "WORKING",
+        "evidence": "v1.1.0: sign_in, sign_out, whoami, get_my_orders, get_order, search_orders, cancel_order, place_order; ui extension declared; widget runtime inlined (325 KB)"
+      },
+      {
+        "piece": "Identity per MCP session",
+        "state": "WORKING",
+        "evidence": "sessions keyed by transport session id; only the BFF cookie is held; env identity allowed on stdio only (HXL_ALLOW_ENV_IDENTITY=1 to override on HTTP); GET /sessions lists who is who without tokens"
+      },
+      {
+        "piece": "Streamable HTTP transport (ChatGPT / Slack)",
+        "state": "WORKING",
+        "evidence": "mcp/server-http.mjs on :8787; paths /mcp, /mcp/chatgpt, /mcp/slack, /mcp/claude set the channel label; verified end to end through https://<x>.trycloudflare.com (sign_in -> place_order -> ORD-00015 channel=chatgpt)"
+      },
+      {
+        "piece": "Live named-user data through Track A",
+        "state": "WORKING",
+        "evidence": "Contact 003g800000fQI05AAG, 16 orders as of 2026-09-12 - no user id passed by the model"
+      },
+      {
+        "piece": "Sharing enforced at the platform (negative path)",
+        "state": "WORKING - after a fix",
+        "evidence": "get_order with NO owner filter: Ada -> Grace Hopper ORD-00003 / a00g8000027TtVYAA0 -> found:false; own orders found:true. Was found:true before the View All fix (see org_divergences #10)"
+      },
+      {
+        "piece": "Prompt injection contained",
+        "state": "WORKING",
+        "evidence": "search_orders(\"\") is deliberately unfiltered: 16 rows, all Ada's, none Grace's; search \"ORD-00003\" -> 0"
+      },
+      {
+        "piece": "Write-back with audit channel",
+        "state": "WORKING",
+        "evidence": "HXL_Order__c.Channel__c set from X-HXL-Channel; live rows ORD-00012 slack, 00013 chatgpt, 00014 claude, 00015 chatgpt, 00016 web; owner Ada"
+      },
+      {
+        "piece": "Cancel (update under sharing)",
+        "state": "WORKING",
+        "evidence": "own Submitted ORD-00016 -> Cancelled; own Shipped ORD-00001 -> 409; Grace's ORD-00003 -> 404 \"not visible\"; card button enabled only for Draft/Submitted"
+      },
+      {
+        "piece": "Rendered inside Claude Desktop",
+        "state": "NOT CONFIRMED",
+        "evidence": "Claude Desktop not installed on the build machine; procedure in TRACK_B_HOST_VERIFICATION.md section 1"
+      },
+      {
+        "piece": "Rendered in ChatGPT",
+        "state": "NOT CONFIRMED",
+        "evidence": "server path verified through the tunnel; connector not yet added (Developer Mode -> https://<tunnel>/mcp/chatgpt)"
+      },
+      {
+        "piece": "Rendered in Slack",
+        "state": "NOT CONFIRMED",
+        "evidence": "Slackbot via MCP Apps only (Block Kit cannot render HXL widgets); workspace availability unchecked"
+      },
+      {
+        "piece": "Rendered in Agentforce",
+        "state": "NOT ATTEMPTED",
+        "evidence": "CLT + renderer.json path; separate from the MCP hosts"
+      }
+    ],
+    "the_bridge": "mcp/server.mjs holds NO Salesforce credentials and never calls Salesforce directly. It signs in through the Track A Headless Identity BFF as a named customer and can only see what that Contact can see. Enforcement lives in HXL_OrderAPI.cls, which reads the Contact off the token and never accepts a user id from the caller. Grace Hopper's $9,999 order is absent from the total because the token cannot see it - nobody filtered it out.",
+    "file_manifest": [
+      {
+        "path": "force-app/main/default/uiWidgets/hxlOrderCard/hxlOrderCard.json",
+        "purpose": "The Mosaic composition. tile/card, tile/badge, tile/callout, {!$attrs.*} bindings, meta.if conditionals."
+      },
+      {
+        "path": "force-app/main/default/uiWidgets/hxlOrderCard/schema.json",
+        "purpose": "Attribute contract, using lightning:type annotations."
+      },
+      {
+        "path": "force-app/main/default/uiWidgets/hxlOrderCard/hxlOrderCard.uiwidget-meta.xml",
+        "purpose": "The UiWidgetBundle metadata wrapper (widgetType: JSON)."
+      },
+      {
+        "path": "mcp/server.mjs",
+        "purpose": "The MCP app: registers the widget resource and the get_my_orders tool, and bridges to Track A."
+      },
+      {
+        "path": "mcp/widgets/hxl-order-card.html",
+        "purpose": "How the card paints inside Claude. The ext-apps runtime is inlined rather than loaded from a CDN."
+      },
+      {
+        "path": "scripts/print-claude-config.mjs",
+        "purpose": "Prints the exact claude_desktop_config.json block with real absolute paths for this machine."
+      },
+      {
+        "path": "mcp/server-http.mjs",
+        "purpose": "Streamable HTTP entry point for ChatGPT and Slackbot; one McpServer + transport per session; /healthz, /sessions"
+      },
+      {
+        "path": "mcp/smoke.mjs",
+        "purpose": "Real MCP client over stdio or HTTP: prints what a host sees; flags --sign-in u p, --get-order X, --search q, --cancel X, --place-order"
+      }
+    ],
+    "findings": [
+      {
+        "n": 1,
+        "title": "developer.salesforce.com 403s automated fetch",
+        "detail": "The entire HXL developer guide is unreachable to any scripted client - the same wall Track A hit. Everything was reconstructed from a public example repo plus the org's own error messages. Budget for reading the docs by hand in a browser."
+      },
+      {
+        "n": 2,
+        "title": "The platform validates Mosaic JSON server-side, strictly, and the errors are excellent",
+        "detail": "A deploy is not a rubber stamp. Two rules that cost a deploy cycle: tile/card caps at 10 children ('The block tile/card at the path $.widgetBody.children[0].children[0] can have only 10 children'), and tile/column does not accept padding, only gap ('You can't add the padding property ... because the additionalProperties keyword value is set to false'). Errors name the exact JSON path, which makes this pleasant to debug - unlike Track A's identity wall, where everything failed with 'authentication failure'."
+      },
+      {
+        "n": 3,
+        "title": "The public example's JSON would not deploy as-is",
+        "detail": "The widget in Lakshmikanth-Paruchuru/hxl-agentic-experience-layer puts padding on a tile/column and 13 children in a tile/card. It was written against API 65; this org is 67. Treat any HXL example older than your org's API version as a sketch, not a spec."
+      },
+      {
+        "n": 4,
+        "title": "Claude Desktop needs native stdio and absolute paths",
+        "detail": "No CDN, no mcp-remote, no relative paths. The widget iframe is sandboxed without network access, so the ext-apps runtime is read off disk and inlined into the HTML at server start. A <script src> to a CDN fails silently - a blank card and no error."
+      },
+      {
+        "n": 5,
+        "title": "UiWidgetBundle and McpServerDefinition were both already available",
+        "detail": "Present as deployable metadata types in a plain Developer Edition org at API 67, with no special enablement request. Nothing had ever been deployed with them before this project - hxlOrderCard is the first."
+      },
+      {
+        "n": 6,
+        "title": "Returning null from an Apex REST method on 404 yields a non-JSON body",
+        "detail": "The BFF read it as \"answered with HTML, not JSON\". Return an empty DTO with the status code instead."
+      },
+      {
+        "n": 7,
+        "title": "One identity per process is a leak the moment the server is hosted",
+        "detail": "Over stdio, HXL_DEMO_USER is one laptop's customer. Over a public URL it is every host user seeing Ada. Hence per-session sign_in and env identity off on HTTP by default."
+      }
+    ],
+    "next": [
+      "Install Claude Desktop, paste the config (npm run config), confirm the card renders and the buttons work. Screenshot. This is Phase 2 criterion 1.",
+      "cloudflared tunnel --url http://localhost:8787, add https://<tunnel>/mcp/chatgpt as a ChatGPT Developer Mode connector, sign in via chat, render, click.",
+      "Check whether the Slack workspace has Slackbot MCP Apps at all before spending hours; if yes, register https://<tunnel>/mcp/slack.",
+      "Certificate route for Registration (Track A first_party_route) -> a second real identity -> the two-person, two-host demo (IMPLEMENTATION_PLAN Part 3 as described in PRESENTATION.md).",
+      "Follow-on with substance: MCP OAuth with the BFF as authorization server, so no password transits the chat."
+    ],
+    "run_it": [
+      "cd hxl-demo && npm start                                  # Track A BFF (node app/server.js on Windows if npm via Start-Process)",
+      "cd hxl-experience-layer && npm run smoke                  # stdio, real MCP client -> named user",
+      "node mcp/smoke.mjs --get-order ORD-00003                  # Grace Hopper's -> found:false",
+      "node mcp/smoke.mjs --search \"\"                            # unfiltered -> only Ada's rows",
+      "npm run mcp:http                                          # :8787 for ChatGPT / Slack",
+      "node mcp/smoke.mjs http://localhost:8787/mcp/chatgpt --sign-in ada.hxl@hxlpoc.demo <pw> --place-order",
+      "cloudflared tunnel --url http://localhost:8787            # public URL for the hosts",
+      "npm run config -> paste into %APPDATA%\\Claude\\claude_desktop_config.json, fully quit and reopen Claude Desktop"
+    ]
+  },
+  "org": {
+    "alias": "hxl",
+    "select_with": "sf config set target-org hxl",
+    "username": "shristipatel63.c30cb1506927@agentforce.com",
+    "org_id": "00Dg800000FKoMgEAL",
+    "type": "Developer Edition, Agentforce-flavoured",
+    "org_api_version": "67.0",
+    "project_pinned_api_version": "63.0 (sfdx-project.json and all -meta.xml files)",
+    "instance_url": "https://orgfarm-4d60b0d1f4-dev-ed.develop.my.salesforce.com",
+    "site_url": "https://orgfarm-4d60b0d1f4-dev-ed.develop.my.site.com/hxlstore",
+    "two_sites_is_normal": "HXL_Store1 (ChatterNetworkPicasso, prefix hxlstore) is the real LWR site. HXL_Store (prefix vforcesite) is the auto-created companion. Token responses report sfdc_community_url as /vforcesite - harmless, both prefixes behave identically for the headless endpoints.",
+    "key_records": [
+      {
+        "thing": "External user profile",
+        "value": "HXL customer (lowercase c), 00eg8000006CaRlAAK, CspLitePortal"
+      },
+      {
+        "thing": "Account",
+        "value": "HXL Demo Customers, 001g800000kPZTnAAO"
+      },
+      {
+        "thing": "Role on admin",
+        "value": "HXL User, 00Eg8000005clflEAA - required, see divergence 7"
+      },
+      {
+        "thing": "Permission set",
+        "value": "HXL_Customer_Access"
+      },
+      {
+        "thing": "External Client App",
+        "value": "HXL_layer, 0xIg8000000BUPNEA4"
+      },
+      {
+        "thing": "Registration handler",
+        "value": "AutocreatedHeadlessSelfReg1788678547452, Run As Shristi verma"
+      },
+      {
+        "thing": "Test community user",
+        "value": "ada.hxl@hxlpoc.demo / ${HXL_DEMO_PASSWORD} - created by hand, did NOT self-register"
+      },
+      {
+        "thing": "Test user Contact id",
+        "value": "003g800000fQI05AAG"
+      }
+    ]
+  },
+  "environment_variables": {
+    "file": ".env (gitignored - transfer separately and securely)",
+    "template": ".env.example (in the repo, safe to copy)",
+    "variables": [
+      {
+        "key": "SF_SITE_URL",
+        "secret": false,
+        "purpose": "Experience Cloud site base URL. The HXL auth host. NOT the my.salesforce.com login URL.",
+        "known_value": "https://orgfarm-4d60b0d1f4-dev-ed.develop.my.site.com/hxlstore"
+      },
+      {
+        "key": "SF_CLIENT_ID",
+        "secret": true,
+        "purpose": "External Client App consumer key.",
+        "known_value": "REDACTED - copy from .env or read from the org"
+      },
+      {
+        "key": "SF_CLIENT_SECRET",
+        "secret": true,
+        "purpose": "Consumer secret. Never leaves the BFF.",
+        "known_value": "REDACTED - copy from .env or read from the org"
+      },
+      {
+        "key": "SF_REDIRECT_URI",
+        "secret": false,
+        "purpose": "Must match a registered callback URL byte for byte, trailing slash included.",
+        "known_value": "http://localhost:3000/callback"
+      },
+      {
+        "key": "SF_SCOPES",
+        "secret": false,
+        "purpose": "Scopes requested by the headless flows.",
+        "known_value": "api refresh_token openid"
+      },
+      {
+        "key": "SF_INIT_AUTH_FLOWS",
+        "secret": false,
+        "purpose": "Comma-separated list of init endpoints that have 'Require authentication' ticked: registration, passwordless, forgot_password. Only those flows get a client-credentials bearer. Per-flow, because a bearer sent to an endpoint NOT expecting one is itself rejected as an authentication failure.",
+        "known_value": "(empty while the init flows are blocked)"
+      },
+      {
+        "key": "PORT",
+        "secret": false,
+        "purpose": "Local BFF port.",
+        "known_value": "3000"
+      },
+      {
+        "key": "HXL_DEBUG",
+        "secret": false,
+        "purpose": "1 logs full Salesforce request and response bodies. Handy on stage, never in a real deployment.",
+        "known_value": "1"
+      }
+    ]
+  },
+  "identity_flows": {
+    "common_shape": "Every flow ends at the same place: an authorization code exchanged with grant_type=authorization_code. Only how the code is obtained varies. Authorize is always POST <site>/services/oauth2/authorize with response_type=code_credentials.",
+    "host_rule": "Identity calls go to the Experience Cloud site domain, never to login.salesforce.com. Data calls are the opposite: the site 302-redirects /services/apexrest/* to its own login page, so those go to the instance_url that came back with the token. hxl.js handles the split via apiHost().",
+    "flows": [
+      {
+        "flow": "Login",
+        "status": "WORKING",
+        "init_call": "(none)",
+        "authorize_headers": "Auth-Request-Type: Named-User + Authorization: Basic base64(user:pass)",
+        "notes": "One round trip. PKCE S256 applied."
+      },
+      {
+        "flow": "Registration",
+        "status": "BLOCKED",
+        "init_call": "POST /services/auth/headless/init/registration",
+        "authorize_headers": "Auth-Request-Type: user-registration, Auth-Verification-Type: email + Basic base64(identifier:otp)",
+        "notes": "Creates the user and signs them in."
+      },
+      {
+        "flow": "Passwordless",
+        "status": "BLOCKED",
+        "init_call": "POST /services/auth/headless/init/passwordless/login",
+        "authorize_headers": "Auth-Request-Type: passwordless-login, Auth-Verification-Type: email + Basic base64(identifier:otp)",
+        "notes": "No password anywhere in the exchange."
+      },
+      {
+        "flow": "Forgot password",
+        "status": "BLOCKED",
+        "init_call": "POST /services/auth/headless/forgot_password",
+        "authorize_headers": "(none - no authorize step)",
+        "notes": "Same endpoint twice: request OTP, then reset with otp + newpassword. Produces no session."
+      }
+    ],
+    "response_quirk": "A successful headless authorize can answer 302 with the code in the Location header rather than as JSON. That is the happy path, not a bounce. hxl.js call() takes {redirectOk} and authorize() opts in, reading the code from Location, then res.code, then res.redirect_uri - three shapes across releases.",
+    "init_handle_quirk": "The init endpoints' handle is read as `identifier` with a fallback to `request_id`; Salesforce has used both names across releases."
+  },
+  "file_manifest": [
+    {
+      "path": "app/hxl.js",
+      "lines": 382,
+      "purpose": "Client for the four Headless Identity APIs. The whole protocol in one file - the one to read on stage.",
+      "detail": "pkcePair, call, getAppAccessToken, initHeaders, exchangeCodeForTokens, authorize, login, registerInit/Verify, passwordlessInit/Verify, forgotPasswordInit/Reset, getMyOrders, createOrder, userinfo, apiHost, HxlError"
+    },
+    {
+      "path": "app/server.js",
+      "lines": 280,
+      "purpose": "The BFF. Holds the client secret and the tokens; the browser gets only an HttpOnly cookie.",
+      "detail": "In-memory sessions Map with a 60-minute TTL, readCookie, session, route error wrapper, tokenSummary (never leaks the token), requireTokens. Routes: /api/config, /api/login, /api/register/init|verify, /api/passwordless/init|verify, /api/forgot/init|reset, /api/me, /api/orders, /api/logout, /callback"
+    },
+    {
+      "path": "app/public/index.html",
+      "lines": 122,
+      "purpose": "The custom front end.",
+      "detail": "Four tabs (Login, Register, Passwordless, Forgot password), account panel, token facts, orders table, new-order form, wire log."
+    },
+    {
+      "path": "app/public/app.js",
+      "lines": 242,
+      "purpose": "Front-end logic.",
+      "detail": "No Salesforce SDK, no client id, no token handling."
+    },
+    {
+      "path": "app/public/styles.css",
+      "lines": 161,
+      "purpose": "Styling.",
+      "detail": "Branded 'Northwind Outfitters' so nothing on screen reads as Salesforce."
+    },
+    {
+      "path": "force-app/main/default/classes/HXL_OrderAPI.cls",
+      "lines": 128,
+      "purpose": "Apex REST at /services/apexrest/hxl/orders.",
+      "detail": "Scoped to the token's Contact - no user id is ever accepted from the caller. Uses WITH USER_MODE and 'insert as user'. Returns an empty envelope for a token with no Contact rather than leaking anything."
+    },
+    {
+      "path": "force-app/main/default/classes/HXL_OrderAPITest.cls",
+      "lines": 135,
+      "purpose": "Tests.",
+      "detail": "Degrades gracefully where no portal profile exists - but see divergence 8: in this org it fails without Digital Experiences configured. Use scripts/setup.ps1 -SkipTests."
+    },
+    {
+      "path": "force-app/main/default/objects/HXL_Order__c/",
+      "lines": 64,
+      "purpose": "Demo custom object.",
+      "detail": "Fields: Owner_Contact__c (lookup), Placed_On__c, Status__c (required), Total_Amount__c."
+    },
+    {
+      "path": "force-app/main/default/permissionsets/HXL_Customer_Access.permissionset-meta.xml",
+      "lines": 41,
+      "purpose": "Permission set for the site's customer users.",
+      "detail": "HXL_OrderAPI class access, HXL_Order__c create + read, three field permissions, and ApiEnabled. Must be assigned to the SITE's profile, not just to you."
+    },
+    {
+      "path": "SETUP.md",
+      "lines": 391,
+      "purpose": "The happy-path org setup guide.",
+      "detail": "12 ordered steps plus a failure-order checklist and a scratch-org appendix. Steps are interdependent and several fail with errors that do not name the real cause."
+    },
+    {
+      "path": "HXL_ORG_CONTEXT.md",
+      "lines": 308,
+      "purpose": "THE FILE TO READ WHEN RESUMING.",
+      "detail": "Live org details, nine documented divergences from SETUP.md, the init endpoint wall with every attempt tried, the first-party route analysis, and the code-change log."
+    },
+    {
+      "path": "README.md",
+      "lines": 218,
+      "purpose": "Pitch and demo material.",
+      "detail": "Architecture diagram, the four-flow table, a 12-minute demo script with timings, anticipated audience questions, troubleshooting table, references."
+    },
+    {
+      "path": "scripts/setup.ps1",
+      "lines": 77,
+      "purpose": "Deploys the Salesforce metadata and installs npm deps.",
+      "detail": "Takes -SkipTests."
+    },
+    {
+      "path": "scripts/verify-setup.ps1",
+      "lines": 216,
+      "purpose": "Pre-flight check, run before every demo.",
+      "detail": "Had a false-negative bug - fixed, see divergence 9."
+    },
+    {
+      "path": "scripts/seed-demo-data.apex",
+      "lines": 60,
+      "purpose": "Seeds demo orders.",
+      "detail": "Three orders for the demo contact plus one $9,999 order belonging to Grace Hopper, which must never appear in the app - that is what makes 'scoped to the token' provable rather than asserted."
+    },
+    {
+      "path": "config/project-scratch-def.json",
+      "lines": 21,
+      "purpose": "Scratch org definition.",
+      "detail": "CI path only, not the POC path."
+    },
+    {
+      "path": ".env.example",
+      "lines": 40,
+      "purpose": "Annotated template for .env.",
+      "detail": "Safe to copy; contains no values."
+    },
+    {
+      "path": "package.json",
+      "lines": 18,
+      "purpose": "Node project manifest.",
+      "detail": "ESM, Node >= 20, two dependencies: express ^4.19.2 and dotenv ^16.4.5. Scripts: start, dev."
+    },
+    {
+      "path": "sfdx-project.json",
+      "lines": 12,
+      "purpose": "Salesforce DX project manifest.",
+      "detail": "sourceApiVersion 63.0, package directory force-app."
+    }
+  ],
+  "org_divergences": [
+    {
+      "n": 1,
+      "title": "PKCE is forced on and cannot be disabled",
+      "detail": "The External Client App shows 'Require Proof Key for Code Exchange' greyed out - 'contact Support' to change it. hxl.js implements PKCE S256: a 64-byte base64url verifier, code_challenge + code_challenge_method=S256 on authorize, code_verifier on exchange. Both params are conditional, so the code still runs against an org where PKCE is off."
+    },
+    {
+      "n": 2,
+      "title": "It is an External Client App, not a classic connected app",
+      "detail": "Different UI and different metadata. Drive it from the CLI instead of fighting the form. AllSelfAuthorized DOES NOT WORK for Experience Cloud users - it returns 'invalid_app_access: user is not admin approved to access this app'. You must use AdminApprovedPreAuthorized AND add the 'HXL customer' profile to the app's approved profiles. This was the single blocker on the login flow. Warning: editing policies in the UI overwrites whatever the CLI last deployed, including fields you did not touch."
+    },
+    {
+      "n": 3,
+      "title": "Authorize answers with a 302, not JSON",
+      "detail": "A successful headless authorize returns HTTP 302 with the code in the Location header. The original hxl.js treated every 3xx as a bounce to a hosted login page and threw. call() now takes {redirectOk}; other 3xx still error, and that check is still worth having."
+    },
+    {
+      "n": 4,
+      "title": "Apex REST must go to instance_url, not the site host",
+      "detail": "The site 302-redirects /services/apexrest/* to its login page. getMyOrders, createOrder and userinfo now take the instance_url that came back with the token; server.js passes s.tokens.instance_url through. Identity still happens on the site host - only the data calls move."
+    },
+    {
+      "n": 5,
+      "title": "Community users need ApiEnabled",
+      "detail": "Without it Apex REST returns APEX_REST_SERVICES_DISABLED. Added to HXL_Customer_Access as a userPermissions entry. UNRESOLVED LICENSING CAVEAT: ada.hxl is a Customer Community (CSP_LITE_PORTAL) user, a licence that does not normally include API access, yet the grant deployed and works. Confirm this is legitimate before relying on it - Customer Community Plus is the licence that formally includes API access."
+    },
+    {
+      "n": 6,
+      "title": "Required fields cannot appear in fieldPermissions",
+      "detail": "The deploy failed with 'You cannot deploy to a required field: HXL_Order__c.Status__c'. Status__c is required, so the platform grants it implicitly. That block was removed from the permission set; no access is lost."
+    },
+    {
+      "n": 7,
+      "title": "The role assignment silently did not save",
+      "detail": "SETUP.md step 4 is right that the admin needs a role, but the UI reported success without persisting it. Verify with SOQL, do not trust the screen: sf data query --query \"SELECT Name, UserRole.Name FROM User WHERE Username='...'\" and fix with sf data update record --sobject User --where \"Username='...'\" --values \"UserRoleId=00Eg8000005clflEAA\""
+    },
+    {
+      "n": 8,
+      "title": "HXL_OrderAPITest needs Digital Experiences before it will pass",
+      "detail": "makePortalUser guards only against NO portal profile existing. This org has one, so the guard passes and 'insert u' then fails, demanding Setup > Digital Experiences > Settings > 'Allow using standard external profiles for self-registration, user creation, and login'. That checkbox is NOT in SETUP.md step 6. Deploy with -SkipTests until it is ticked."
+    },
+    {
+      "n": 9,
+      "title": "verify-setup.ps1 had a false-negative bug (fixed)",
+      "detail": "Invoke-Soql did 'return @($res.records)'. PowerShell unrolls a single-element array back to a bare object, and PSCustomObject has no .Count in PS 5.1 - so EVERY check that matched exactly one record reported failure. It claimed the permission set, role and account were all missing when all three existed. Fixed with 'return ,@(...)'. It still warns 'No connected apps visible'; that is a false alarm - ConnectedApplication is not reliably queryable and this org uses an External Client App anyway."
+    },
+    {
+      "n": 10,
+      "title": "\"View All\" on the customer profile was silently defeating the sharing claim (found and fixed 2026-09-12)",
+      "detail": "The HXL customer profile had PermissionsViewAllRecords=true on HXL_Order__c, which bypasses OWD and sharing. Every earlier \"sharing proof\" was the WHERE Owner_Contact__c filter in getMyOrders. The new get_order tool (by Id, no filter) returned Grace Hopper's $9,999 order to Ada on first run. Fix, in source and deployed: profiles/HXL customer.profile-meta.xml (viewAllRecords=false, allowEdit=true) + sharingSets/HXL_Customer_Orders (Edit on orders whose Owner_Contact__c is the user's Contact). Re-verified: Grace's order found:false by number and Id; Ada's 16 orders unchanged incl. 3 admin-created ones now visible via the sharing set. Check every community profile/permset: PermissionsViewAllRecords and PermissionsModifyAllRecords must both be false."
+    },
+    {
+      "n": 11,
+      "title": "WITH USER_MODE + missing FLS reports as \"Variable does not exist: tmpVar1\"",
+      "detail": "Hit in HXL_OrderAPITest when the portal test user lacked FLS on the new Channel__c field. Fix: assign HXL_Customer_Access to the test user inside System.runAs(current user) to avoid MIXED_DML_OPERATION, and prefer the real \"HXL customer\" profile so the sharing set applies in tests."
+    }
+  ],
+  "init_endpoint_wall": {
+    "summary": "Login & Registration refuses to enable Headless Registration, Passwordless Login or Forgot Password unless each has 'Require authentication' OR 'Require reCAPTCHA' ticked. This is enforced, not advisory - the Metadata API rejects it too. With Require authentication on, the init endpoints reject every credential that can be minted.",
+    "attempts": [
+      {
+        "attempt": "No header",
+        "result": "'include an authentication header or reCAPTCHA parameter'"
+      },
+      {
+        "attempt": "Authorization: Basic base64(client_id:client_secret)",
+        "result": "same - Basic is not recognised at all"
+      },
+      {
+        "attempt": "Bearer, client-credentials as admin (approved for the app)",
+        "result": "authentication failure"
+      },
+      {
+        "attempt": "Bearer, client-credentials as ada.hxl (community user, app-approved, ApiEnabled)",
+        "result": "the token will not issue: 'access_denied - end-user denied authorization'"
+      },
+      {
+        "attempt": "Bearer from the instance domain instead of the site domain",
+        "result": "authentication failure"
+      },
+      {
+        "attempt": "The same via /vforcesite instead of /hxlstore",
+        "result": "identical"
+      },
+      {
+        "attempt": "allowInternalUserLogin=true",
+        "result": "no effect - tested and reverted"
+      }
+    ],
+    "conclusion": "A community user cannot be a client-credentials run-as, and an admin's token is refused by the endpoints. The authentication branch is exhausted.",
+    "docs_note": "The official interface docs 403 for automated fetch and help.salesforce.com is a JS app, so this was worked out from error strings alone.",
+    "first_party_route": {
+      "what": "OAuth 2.0 for First-Party Applications - the newer protocol that replaces the init endpoints, and almost certainly the intended path in this release.",
+      "enabled_in_org": "YES - both flags were needed: isFirstPartyAppsAllowed on the Network metadata (site) and isFirstPartyAppEnabled on ExtlClntAppOauthSettings (the app). Enabling only the site flag gives 'first party applications not enabled for application'.",
+      "endpoint": "POST <site>/services/oauth2/v1/authorization_challenge (the unversioned path also answers; /services/oauth2/challenge is a 404)",
+      "body_takes": "username, password, client_id, code_challenge, and client_assertion - 'the client attestation JWT that you generated, signed by the certificate'",
+      "blocker": "Every request without a valid client_assertion returns {\"error_description\":\"invalid assertion\",\"error_code\":\"invalid_grant\",\"error\":\"invalid_request\"}. A dummy value returns the identical error, confirming it is required and verified. auth_request_type, client_secret and the Auth-Request-Type header make no difference - the assertion check happens first.",
+      "to_unblock": "Generate a signing certificate, register it on the External Client App for client attestation, then have the BFF mint and sign a JWT per request. Real work, but well-defined - unlike the init-endpoint dead end."
+    },
+    "route_comparison": [
+      {
+        "route": "init endpoints + Require authentication",
+        "blocked_on": "Unknown - no credential we can mint is accepted",
+        "effort": "Unknown; ask Salesforce Support",
+        "recommended": false
+      },
+      {
+        "route": "First-party authorization_challenge",
+        "blocked_on": "A client attestation certificate + JWT signing",
+        "effort": "Defined: cert setup + ~40 lines",
+        "recommended": true
+      },
+      {
+        "route": "init endpoints + reCAPTCHA",
+        "blocked_on": "A Google reCAPTCHA key and a real solve in the browser",
+        "effort": "Small code change, but the demo has to show a captcha",
+        "recommended": false
+      }
+    ],
+    "recommendation": "The first-party route: it is the direction Salesforce is moving, it needs no captcha in the demo, and the failure mode is now fully understood."
+  },
+  "code_changes_made": [
+    {
+      "file": "app/hxl.js",
+      "change": "PKCE (S256) on all three code-producing flows"
+    },
+    {
+      "file": "app/hxl.js",
+      "change": "call() gained {redirectOk}; authorize() reads the code from a 302 Location header"
+    },
+    {
+      "file": "app/hxl.js",
+      "change": "apiHost() - data calls use instance_url, not SF_SITE_URL"
+    },
+    {
+      "file": "app/hxl.js",
+      "change": "getAppAccessToken() + initHeaders(flow) - per-flow client-credentials bearer"
+    },
+    {
+      "file": "app/server.js",
+      "change": "passes s.tokens.instance_url into userinfo / getMyOrders / createOrder"
+    },
+    {
+      "file": ".env / .env.example",
+      "change": "SF_INIT_AUTH_FLOWS replaced SF_INIT_REQUIRES_AUTH"
+    },
+    {
+      "file": "force-app/.../HXL_Customer_Access",
+      "change": "dropped Status__c fieldPermissions; added ApiEnabled"
+    },
+    {
+      "file": "scripts/verify-setup.ps1",
+      "change": "fixed the single-record array unrolling false negative"
+    },
+    {
+      "file": "force-app/.../objects/HXL_Order__c/fields/Channel__c.field-meta.xml",
+      "change": "NEW restricted picklist web|claude|chatgpt|slack|codex|other (default web) - the audit column"
+    },
+    {
+      "file": "force-app/.../classes/HXL_OrderAPI.cls",
+      "change": "createOrder(totalAmount, channel); GET /hxl/orders/<id|name> (no owner filter); GET ?q= unfiltered search; @HttpPatch cancelOrder(orderNumber) Draft/Submitted only; channel in every DTO; toDto helper"
+    },
+    {
+      "file": "force-app/.../classes/HXL_OrderAPITest.cls",
+      "change": "Negative path (other contact's order by Id -> 404), unfiltered search leaks nothing, cancel 404/409/200, channel handling; test user gets the permset in runAs and prefers the HXL customer profile"
+    },
+    {
+      "file": "force-app/.../permissionsets/HXL_Customer_Access.permissionset-meta.xml",
+      "change": "FLS on Channel__c; allowEdit on HXL_Order__c"
+    },
+    {
+      "file": "force-app/.../profiles/HXL customer.profile-meta.xml",
+      "change": "NEW partial profile: viewAllRecords=false, allowEdit=true on HXL_Order__c"
+    },
+    {
+      "file": "force-app/.../sharingSets/HXL_Customer_Orders.sharingSet-meta.xml",
+      "change": "NEW sharing set: Edit on HXL_Order__c where Owner_Contact__c = user Contact, profile HXL customer"
+    },
+    {
+      "file": "app/server.js, app/hxl.js",
+      "change": "GET /api/orders/search?q=, GET /api/orders/:lookup, POST /api/orders/:lookup/cancel; X-HXL-Channel header forwarded to Apex on create and cancel"
+    }
+  ],
+  "commands": {
+    "first_time_on_a_new_machine": [
+      "See SETUP_NEW_MACHINE.md for the full sequence. Short form:",
+      "winget install OpenJS.NodeJS.LTS ; npm install --global @salesforce/cli ; winget install --id Cloudflare.cloudflared -e",
+      "sf org login web --alias hxl --set-default",
+      "cd hxl-demo && npm install ; cd ../hxl-experience-layer/mcp && npm install",
+      "copy both .env files across securely (gitignored), or rebuild from .env.example",
+      "sf apex run test --class-names HXL_OrderAPITest --target-org hxl --wait 10   # 4/4"
+    ],
+    "deploy_and_verify": [
+      "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1 -SkipTests",
+      "powershell -ExecutionPolicy Bypass -File scripts/verify-setup.ps1",
+      "sf apex run --file scripts/seed-demo-data.apex"
+    ],
+    "run": [
+      "npm start",
+      "open http://localhost:3000",
+      "npm run dev   (node --watch)"
+    ],
+    "inspect_the_org": [
+      "sf org open --path lightning/setup/SetupNetworks/home",
+      "sf org open --path lightning/setup/ApexClasses/home",
+      "sf data query --query \"SELECT Id, Name, Status, UrlPathPrefix FROM Network\"",
+      "sf data query --query \"SELECT Id, Name, Total_Amount__c, Owner_Contact__r.Name FROM HXL_Order__c\"",
+      "sf project retrieve start --metadata \"Network:HXL Store\" --target-metadata-dir tmp    (then read networkAuthApiSettings - the UI form lies, this does not)",
+      "sf project retrieve start --metadata \"ExtlClntAppOauthConfigurablePolicies\" --target-metadata-dir tmp",
+      "sf project retrieve start --metadata \"ExtlClntAppOauthSettings\" --target-metadata-dir tmp",
+      "sf project deploy start --metadata-dir tmp/unpackaged",
+      "sf data query --query \"SELECT Name, Owner_Contact__r.Name, Channel__c, Status__c, CreatedDate FROM HXL_Order__c ORDER BY CreatedDate DESC\"   (the audit trail)",
+      "sf data query --query \"SELECT Parent.Name, Parent.Profile.Name, PermissionsViewAllRecords, PermissionsModifyAllRecords FROM ObjectPermissions WHERE SobjectType = 'HXL_Order__c' AND ParentId IN (SELECT PermissionSetId FROM PermissionSetAssignment WHERE Assignee.Username = 'ada.hxl@hxlpoc.demo')\"   (both must be false on every row)"
+    ],
+    "port_already_in_use": [
+      "netstat -ano | findstr \":3000\"",
+      "taskkill /PID <pid> /F"
+    ]
+  },
+  "gotchas": [
+    "THE UI FORM SILENTLY FAILS TO SAVE. The role, selfRegistration and the registration auth flag all looked saved and were not. Always confirm against metadata or SOQL, never against the screen.",
+    "Two OAuth flags, not one: 'Allow Authorization Code and Credentials Flows' exists org-wide (Setup > OAuth and OpenID Connect Settings) AND on the connected app. Both must be on, or you get a redirect to a hosted login page instead of JSON.",
+    "The admin user needs a role. Self-registration creates portal users under a business Account and Salesforce refuses when the account owner has no role. The error does not mention roles.",
+    "The permission set must reach the SITE's profile, not just you. A perfectly valid token otherwise gets a 403 from Apex.",
+    "SF_REDIRECT_URI must match the registered callback byte for byte, trailing slash included.",
+    "The authorization code is single-use and short-lived. invalid_grant on the token exchange usually means a replay or clock skew.",
+    "OTP email never arriving is usually Deliverability set to 'System email only'. Setup > Deliverability > Access level: All email.",
+    "An empty orders list with a null contactId means the token belongs to a user with no Contact - an internal user, not a community user.",
+    "OBSERVATION, NOT YET VERIFIED: scripts/seed-demo-data.apex has DEMO_EMAIL = 'ada@example.com', while the working test user is ada.hxl@hxlpoc.demo. If seeded orders do not appear for the logged-in user, this mismatch is the first thing to check.",
+    "View All / Modify All on any community profile or permset silently defeats sharing. A filtered query proves nothing about the platform - only an unfiltered ask that is refused does.",
+    "On Windows, Start-Process npm starts nothing (npm is a .cmd shim). Use node app/server.js / node mcp/server-http.mjs directly.",
+    "Free cloudflared tunnel URLs rotate on every restart - re-paste into ChatGPT/Slack.",
+    "The site's DNS blips on first contact; the MCP server retries once so the card does not show \"sample data\" for no visible reason."
+  ],
+  "decision_made": {
+    "date": "2026-09-06",
+    "decision": "Build Track B (Headless Experience Layer) from scratch, keep Track A intact, and wire them together rather than choosing between them. Taken with more than 10 of the 30 hours remaining.",
+    "outcome": "Spike succeeded. The widget bundle deployed to the org on the second attempt, the MCP server works, and live named-user data flows from Track A into the widget payload. The combined story - an agent surface showing one customer's data with Salesforce sharing enforcing it - is now demonstrable up to the host render.",
+    "what_was_rejected": "Scrapping Track A (its findings are the hardest-won material in the project), and pursuing the Track A certificate route in parallel (splitting time across two hard problems).",
+    "superseded_options": {
+      "note": "These were the differentiating ideas considered before Track B was chosen. Kept for the record; none were built.",
+      "context": "The Track A demo alone proves the well-known claim - custom UI, Salesforce backend - which every Headless Identity demo proves. The options below were ways to differentiate it."
+    }
+  },
+  "open_decision_superseded": {
+    "context": "SUPERSEDED by decision_made above - kept for the record. No code was written for any of these options; the Identity Broker insight was instead absorbed into the Track A + Track B bridge.",
+    "the_insight": "The genuinely differentiated asset in this repo is token custody in the layer. Because the BFF holds the token rather than the browser holding a force.com session cookie, capabilities become possible that Salesforce-hosted UI structurally cannot offer.",
+    "options": [
+      {
+        "name": "Identity Broker (recommended)",
+        "summary": "The layer as a channel-agnostic session broker.",
+        "capabilities": [
+          "Cross-device handoff via a short-lived pairing code - desktop to kiosk or phone, one Salesforce identity, no re-login.",
+          "Step-up re-authentication - a high-value order forces a fresh Salesforce credential check before the write, time-boxed and recorded.",
+          "Session inventory and revoke-everywhere across all channels."
+        ],
+        "why_it_wins": "All three are impossible with Salesforce-hosted UI, and all three run on the login flow that already works - no dependency on the blocked init endpoints.",
+        "sketch": "POST /api/pair -> 6-digit code, 90s TTL. POST /api/orders over a threshold -> 401 step_up_required -> fresh headless authorize -> write. GET/DELETE /api/sessions for the inventory and revocation."
+      },
+      {
+        "name": "Progressive identity",
+        "summary": "An anonymous guest session carrying a cart, bound to a real Salesforce identity at the moment of conversion with zero state loss and no redirect.",
+        "caveat": "The full version (guest to brand-new user) needs the registration flow, which is blocked. Only the bind-to-existing-user half is shippable today."
+      },
+      {
+        "name": "Non-browser channel",
+        "summary": "Drive the same layer from a terminal or kiosk client and an SMS/chat-style client, proving Salesforce identity reaches surfaces that cannot render a hosted login page.",
+        "caveat": "Very visual on stage, but thinner as an architecture argument."
+      }
+    ],
+    "questions_still_open": [
+      "Who is the audience and what decision are they making - an internal capability pitch, a client proposal, or a talk?",
+      "Does 'implemented' mean working against the live org, or working code in the repo? Only the login flow can be demoed end to end today.",
+      "Is there a target domain (banking, healthcare, telco)? The idea gets much stronger tied to a real domain pain."
+    ]
+  },
+  "next_steps": [
+    {
+      "priority": 1,
+      "task": "TRACK B: confirm the widget renders inside Claude Desktop, then a second surface (Agentforce or Slack). Everything up to the host is verified; that last hop is not.",
+      "effort": "Under an hour if the config is right",
+      "blocked_by": "Nothing"
+    },
+    {
+      "priority": 2,
+      "task": "Unblock the three identity flows via the first-party route: generate a signing certificate, register it on the External Client App for client attestation, mint and sign the client_assertion JWT in the BFF.",
+      "effort": "Certificate setup + ~40 lines",
+      "blocked_by": "Nothing - both org flags are already enabled"
+    },
+    {
+      "priority": 3,
+      "task": "Tick Setup > Digital Experiences > Settings > 'Allow using standard external profiles for self-registration, user creation, and login' so HXL_OrderAPITest passes and -SkipTests can be dropped.",
+      "effort": "One checkbox",
+      "blocked_by": "Nothing"
+    },
+    {
+      "priority": 4,
+      "task": "Resolve the Customer Community licensing question around ApiEnabled (divergence 5) before anyone relies on it in a proposal.",
+      "effort": "A conversation",
+      "blocked_by": "Needs a Salesforce answer"
+    },
+    {
+      "priority": 5,
+      "task": "Fix the seed-script email mismatch if confirmed (see Gotchas).",
+      "effort": "One line",
+      "blocked_by": "Verification"
+    },
+    {
+      "priority": 6,
+      "task": "If the first-party route stalls, open a Salesforce Support case asking exactly what token the init endpoints accept when Require authentication is on for a private client.",
+      "effort": "Support turnaround",
+      "blocked_by": "An escalation path"
+    },
+    {
+      "priority": 7,
+      "task": "Production hardening, if this ever leaves demo status: Redis session store, Secure + SameSite cookies, TLS, CSRF on state-changing routes, refresh-token rotation, API version bump from 63.0.",
+      "effort": "Out of POC scope",
+      "blocked_by": "Not needed for a demo"
+    }
+  ],
+  "transfer_checklist": [
+    "Copy the whole directory EXCEPT node_modules/, .sf/ and .sfdx/ - all three are regenerated.",
+    ".env is gitignored and will not travel with a git clone. Transfer it separately over a secure channel, or rebuild it from .env.example plus the consumer key and secret read out of the org.",
+    "On the new machine: install Node >= 20 and the Salesforce CLI, then run npm install.",
+    "Re-authenticate the org: sf org login web --alias hxl, then sf config set target-org hxl. The old machine's auth does not transfer.",
+    "Nothing about the org itself needs redoing - the org is server-side state and is already configured. Only the local toolchain is rebuilt.",
+    "This directory is NOT currently a git repository. Consider running git init before moving it, so the transfer is a clone rather than a copy.",
+    "Read HXL_ORG_CONTEXT.md first on the other side. It is the file that explains why things are the way they are."
+  ],
+  "demo_script_12min": [
+    {
+      "at": "0:00",
+      "beat": "Frame it (1 min)",
+      "status": "WORKS",
+      "say": "This is a store front end. Nothing on this screen is Salesforce. No iframe, no embedded component, no redirect. Watch the address bar - it never leaves localhost. The wire log shows exactly which Salesforce endpoint each action hits, so nothing is hidden."
+    },
+    {
+      "at": "1:00",
+      "beat": "Registration (3 min)",
+      "status": "BLOCKED",
+      "say": "CUT OR ADAPT - blocked in the current org."
+    },
+    {
+      "at": "4:00",
+      "beat": "The token, and where it lives (2 min)",
+      "status": "WORKS",
+      "say": "The token card shows a preview only. The browser never gets this - it has an HttpOnly cookie; the access token and the client secret live in the layer. That is the difference between a headless layer and shipping OAuth into a browser."
+    },
+    {
+      "at": "6:00",
+      "beat": "Data, scoped by identity (2 min)",
+      "status": "WORKS - the money moment",
+      "say": "The seed script created a $9,999 order belonging to a different contact. It is not in this list, and I never passed a user id - the Apex reads the Contact off the token. Then place an order and watch it appear."
+    },
+    {
+      "at": "8:00",
+      "beat": "Passwordless (2 min)",
+      "status": "BLOCKED",
+      "say": "CUT OR ADAPT - blocked in the current org."
+    },
+    {
+      "at": "10:00",
+      "beat": "Forgot password (1 min)",
+      "status": "BLOCKED",
+      "say": "CUT OR ADAPT - blocked in the current org."
+    },
+    {
+      "at": "11:00",
+      "beat": "Close (1 min)",
+      "status": "WORKS",
+      "say": "Everything you saw is Salesforce identity, Salesforce sharing, Salesforce data. What you did not see is Salesforce UI. Swap this front end for React, Next, iOS, a kiosk, a set-top box - the layer does not change."
+    }
+  ],
+  "anticipated_questions": [
+    {
+      "q": "Is this Experience Cloud licensing?",
+      "a": "Yes. Headless Identity runs through an Experience Cloud site; the users are Customer Community (or Partner) users and are licensed as such. The site being invisible does not make it free."
+    },
+    {
+      "q": "What about SSO / social login?",
+      "a": "There is a headless flow for that too - headless SSO with an external auth provider. Same shape, different init call. Not wired up here."
+    },
+    {
+      "q": "Why the BFF? Can't the SPA call Salesforce directly?",
+      "a": "It can, as a public client with PKCE and reCAPTCHA. Then the tokens live in the browser and the init endpoints are internet-facing and unauthenticated. The BFF exists so neither is true."
+    },
+    {
+      "q": "Rate limits?",
+      "a": "The headless auth endpoints are subject to org API limits and their own throttling; OTP sends in particular are rate-limited per user. Size it in a real design."
+    },
+    {
+      "q": "Does this work for internal users?",
+      "a": "No. Headless Identity is for external identity - Customer and Partner users on a site."
+    }
+  ],
+  "references": [
+    "What Is Headless Identity? - https://developer.salesforce.com/docs/atlas.en-us.headless_identity.meta/headless_identity/headless_identity_what_is_it.htm",
+    "Headless Registration Flow for Public Clients - https://help.salesforce.com/s/articleView?id=sf.remoteaccess_headless_registration_public_clients.htm",
+    "Headless Registration Flow for Private Clients - https://help.salesforce.com/s/articleView?id=sf.remoteaccess_headless_registration_private_clients.htm",
+    "Headless Passwordless Login for Private Clients - https://help.salesforce.com/s/articleView?id=xcloud.remoteaccess_headless_passwordless_login_private_clients.htm",
+    "Headless Identity for Customers and Partners - https://help.salesforce.com/s/articleView?id=sf.headless_identity_customers_overview.htm",
+    "Headless Identity Basics (Trailhead) - https://trailhead.salesforce.com/content/learn/modules/headless-identity-basics/get-to-know-headless-identity-features"
+  ],
+  "phase2_2026_09_12": {
+    "hypothesis": "Two different real people, in two chat sessions on the same agent surface, each see and act on only their own Salesforce data - enforced by Salesforce sharing, not by which demo account was wired into the server.",
+    "criteria_status": [
+      {
+        "n": 1,
+        "criterion": "Widget renders in a real MCP host; data matches SOQL",
+        "status": "Server side complete over stdio, local HTTP and a public URL. Host render NOT yet confirmed (Claude Desktop not installed; ChatGPT/Slack not connected)."
+      },
+      {
+        "n": 2,
+        "criterion": "Registration works end to end; second real Contact",
+        "status": "Not started - init-endpoint wall unchanged; certificate route scoped."
+      },
+      {
+        "n": 3,
+        "criterion": "Two identities, two sessions, cross-access refused",
+        "status": "Mechanism complete and verified (per-session identity, /sessions, sharing refusal). Not yet shown with two people on a live host."
+      }
+    ],
+    "most_important_finding": "The sharing claim was false until 12 Sep: View All on the customer profile bypassed sharing and every earlier proof was a WHERE filter. Found by the first tool that asked without filtering. Fixed with a Sharing Set + View All off; re-verified from the agent surface. Lesson: a sharing claim is only real when an unfiltered ask is refused.",
+    "hosts": {
+      "claude_desktop": "stdio; shortest path; install pending",
+      "chatgpt": "HTTPS via tunnel + Developer Mode connector; same MCP Apps standard; connector not yet added",
+      "slack": "Slackbot via MCP Apps only - Block Kit cannot render HXL widgets; workspace availability is a plan question",
+      "codex": "full MCP client, cannot render (terminal) - tool contract only",
+      "agentforce": "CLT + renderer.json, no MCP server; not attempted"
+    },
+    "verified_on_2026_09_12": [
+      "stdio smoke: Ada Lovelace | named user | 16 orders; whoami -> Contact + channel claude",
+      "HTTP /mcp/chatgpt without sign_in -> \"Not signed in\" (env identity refused)",
+      "HTTP /mcp/slack --sign-in -> Ada, channel slack; place_order -> ORD-00012 Channel__c=slack",
+      "public cloudflared URL: sign_in -> place_order -> ORD-00015 Channel__c=chatgpt; /sessions via tunnel",
+      "get_order ORD-00003 / a00g8000027TtVYAA0 (Grace) -> found:false; ORD-00001 / ORD-00015 (Ada) -> found:true",
+      "search_orders \"\" -> 16 rows, ownerFilterApplied=false, none Grace's",
+      "cancel_order ORD-00016 -> Cancelled; ORD-00001 -> 409 Shipped; ORD-00003 -> 404 not visible",
+      "HXL_OrderAPITest 4/4"
+    ],
+    "still_poc_grade": [
+      "Password transits the chat for sign_in - the proper design is MCP OAuth with the BFF as authorization server.",
+      "In-memory sessions, plain HTTP on localhost, rotating tunnel URL.",
+      "Orders ORD-00001..00011 predate Channel__c and carry null - honest, not backfilled."
+    ],
+    "ask": [
+      "2 days: confirm render on Claude Desktop + one hosted surface, with write-back and audit row from each.",
+      "3-5 days: certificate route -> Registration -> two-person, two-host demo.",
+      "Decision: licensing confirmation with Salesforce before commercial reliance.",
+      "Then: scope MCP OAuth with the identity layer as authorization server."
+    ]
+  },
+  "cleanup_2026_09_12": "Removed: DEMO_SCRIPT.md, DEMO_SCRIPT_TRACKB.md (folded into PRESENTATION.md Parts 4, 6, 7); EXECUTIVE_SUMMARY.md/.docx (Phase 1, superseded by EXECUTIVE_SUMMARY_PHASE2); hxl-demo/current.png, hxl-experience-layer/playground-paste.json (unreferenced); hxl-experience-layer/preview.html (generated by npm run demo, now gitignored). The deleted IMPLEMENTATION_PLAN.md is covered by TRACK_B_BUILD_PATH.md + TRACK_B_HOST_VERIFICATION.md."
+}

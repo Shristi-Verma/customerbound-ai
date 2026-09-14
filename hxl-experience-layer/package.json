@@ -1,0 +1,21 @@
+{
+  "name": "hxl-experience-layer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Salesforce Headless Experience Layer - one Mosaic widget, rendered anywhere, carrying a named-user identity from the Headless Identity track",
+  "scripts": {
+    "demo": "node scripts/preview.mjs --open",
+    "preview": "node scripts/preview.mjs",
+    "config": "node scripts/print-claude-config.mjs",
+    "mcp": "node mcp/server.mjs",
+    "deploy": "sf project deploy start --source-dir force-app --target-org hxl",
+    "verify": "sf org list metadata --metadata-type UiWidgetBundle --target-org hxl",
+    "mcp:http": "node mcp/server-http.mjs",
+    "smoke": "node mcp/smoke.mjs",
+    "smoke:http": "node mcp/smoke.mjs http://localhost:8787/mcp"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

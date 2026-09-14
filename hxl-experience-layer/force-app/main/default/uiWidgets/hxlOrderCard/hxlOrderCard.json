@@ -1,0 +1,221 @@
+{
+  "type": "lightning__agentforceWidget",
+  "contentBody": {
+    "widgetBody": {
+      "definition": "tile/widget",
+      "children": [
+        {
+          "definition": "tile/column",
+          "attributes": {
+            "gap": "md"
+          },
+          "children": [
+            {
+              "definition": "tile/card",
+              "attributes": {
+                "padding": "lg",
+                "variant": "elevated"
+              },
+              "children": [
+                {
+                  "definition": "tile/column",
+                  "attributes": {
+                    "gap": "md"
+                  },
+                  "children": [
+                    {
+                      "definition": "tile/column",
+                      "attributes": {
+                        "gap": "sm"
+                      },
+                      "children": [
+                        {
+                          "definition": "tile/row",
+                          "attributes": {
+                            "gap": "sm",
+                            "align": "center",
+                            "justify": "between"
+                          },
+                          "children": [
+                            {
+                              "definition": "tile/text",
+                              "attributes": {
+                                "text": "{!$attrs.contactId}",
+                                "variant": "caption"
+                              }
+                            },
+                            {
+                              "definition": "tile/badge",
+                              "attributes": {
+                                "label": "{!$attrs.identityMode}",
+                                "variant": "secondary"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.customerName}",
+                            "variant": "h2"
+                          }
+                        },
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.email}",
+                            "variant": "caption"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "definition": "tile/separator"
+                    },
+                    {
+                      "definition": "tile/column",
+                      "attributes": {
+                        "gap": "sm"
+                      },
+                      "children": [
+                        {
+                          "definition": "tile/row",
+                          "attributes": {
+                            "gap": "sm",
+                            "align": "center",
+                            "justify": "between"
+                          },
+                          "children": [
+                            {
+                              "definition": "tile/text",
+                              "attributes": {
+                                "text": "Orders",
+                                "variant": "h3"
+                              }
+                            },
+                            {
+                              "definition": "tile/badge",
+                              "attributes": {
+                                "label": "{!$attrs.orderCount}",
+                                "variant": "secondary"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.totalValue}",
+                            "variant": "body"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "definition": "tile/separator"
+                    },
+                    {
+                      "definition": "tile/column",
+                      "attributes": {
+                        "gap": "sm"
+                      },
+                      "children": [
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "Most recent",
+                            "variant": "h3"
+                          }
+                        },
+                        {
+                          "definition": "tile/row",
+                          "attributes": {
+                            "gap": "sm",
+                            "align": "center",
+                            "justify": "between"
+                          },
+                          "children": [
+                            {
+                              "definition": "tile/text",
+                              "attributes": {
+                                "text": "{!$attrs.latestOrderNumber}",
+                                "variant": "body"
+                              }
+                            },
+                            {
+                              "definition": "tile/badge",
+                              "attributes": {
+                                "label": "{!$attrs.latestOrderStatus}",
+                                "variant": "secondary"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.latestOrderAmount}",
+                            "variant": "h2"
+                          }
+                        },
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.latestOrderPlaced}",
+                            "variant": "caption"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "definition": "tile/callout",
+                      "meta": {
+                        "if": "{!$attrs.isLiveIdentity}"
+                      },
+                      "attributes": {
+                        "variant": "warning",
+                        "title": "Scoped by Salesforce sharing"
+                      },
+                      "children": [
+                        {
+                          "definition": "tile/text",
+                          "attributes": {
+                            "text": "{!$attrs.scopeNote}",
+                            "variant": "body"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "definition": "tile/row",
+                      "attributes": {
+                        "gap": "sm",
+                        "align": "center"
+                      },
+                      "children": [
+                        {
+                          "definition": "tile/button",
+                          "attributes": {
+                            "label": "Place another order",
+                            "variant": "primary"
+                          }
+                        },
+                        {
+                          "definition": "tile/button",
+                          "attributes": {
+                            "label": "Cancel latest order",
+                            "variant": "secondary"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

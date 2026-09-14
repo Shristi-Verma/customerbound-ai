@@ -1,0 +1,28 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.sf/
+.sfdx/
+.claude/
+.vscode/
+.idea/
+claude_desktop_config.json
+*.log
+*.pid
+coverage/
+.nyc_output/
+preview.html
+.doc-build/
+.deck-build/
+.playwright-tmp/
+
+# Legacy binary handoff contains retired local configuration; keep the
+# sanitized HANDOFF.json source instead.
+HXL_Handoff.docx
+Thumbs.db
+.DS_Store

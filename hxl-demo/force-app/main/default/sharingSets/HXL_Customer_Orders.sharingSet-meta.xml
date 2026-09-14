@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SharingSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <accessMappings>
+        <accessLevel>Edit</accessLevel>
+        <object>HXL_Order__c</object>
+        <objectField>Owner_Contact__c</objectField>
+        <userField>Contact</userField>
+    </accessMappings>
+    <description>Customers read and edit (cancel) HXL orders whose Owner Contact is their own Contact, including staff-created ones. With OWD Private and no View All, this is the whole sharing story.</description>
+    <name>HXL Customer Orders</name>
+    <profiles>HXL customer</profiles>
+</SharingSet>

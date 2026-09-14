@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>HXL Order Card</title>
+  <style>
+    /* The host owns the theme; these variables fall back for a standalone open. */
+    html, body { margin: 0; background: transparent; }
+    body {
+      color: var(--color-text-primary, #1c1917);
+      font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+      padding: 8px;
+    }
+    .card {
+      background: var(--color-bg-primary, #fffdf8);
+      border: 1px solid var(--color-border-default, #e7e5e4);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .badge {
+      font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+      background: #efece4; color: #44403c; white-space: nowrap;
+    }
+    .badge.live { background: #dcfce7; color: #14532d; }
+    .name { font-size: 1.15rem; font-weight: 700; margin: 10px 0 2px; }
+    .caption { font-size: 13px; color: var(--color-text-secondary, #78716c); }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    hr { border: 0; border-top: 1px solid var(--color-border-default, #e7e5e4); margin: 14px 0; }
+    h3 { margin: 0 0 6px; font-size: 14px; }
+    .amount { font-size: 1.5rem; font-weight: 700; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+    .callout {
+      border-left: 4px solid #b45309; background: #fff8e8;
+      padding: 10px 12px; border-radius: 0 10px 10px 0; margin: 14px 0;
+      font-size: 13px;
+    }
+    .callout strong { display: block; margin-bottom: 3px; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    button { border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 650; cursor: pointer; }
+    .primary { background: #1A1A2E; color: #fff; }
+    .secondary { background: #e7e5e4; color: #1c1917; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    /*__EXT_APPS_BUNDLE__*/
+    (async () => {
+      let app = null;   // set once connected; the buttons need it
+      const SAMPLE = {
+        customerName: "Ada Lovelace",
+        email: "ada@example.com",
+        contactId: "(sample - no live token)",
+        orderCount: 3,
+        totalValue: "$443.49 across 3 orders",
+        latestOrderNumber: "ORD-00009",
+        latestOrderStatus: "Submitted",
+        latestOrderAmount: "$49.99",
+        latestOrderPlaced: "6 Sep 14:11",
+        identityMode: "sample data",
+        isLiveIdentity: false,
+        scopeNote: ""
+      };
+
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+      function render(d) {
+        const scope = d.isLiveIdentity && d.scopeNote
+          ? `<div class="callout"><strong>Scoped by Salesforce sharing</strong>${esc(d.scopeNote)}</div>`
+          : "";
+        document.getElementById("root").innerHTML = `
+          <div class="card">
+            <div class="row">
+              <div class="caption mono">${esc(d.contactId)}</div>
+              <span class="badge ${d.isLiveIdentity ? "live" : ""}">${esc(d.identityMode)}</span>
+            </div>
+            <div class="name">${esc(d.customerName)}</div>
+            <div class="caption">${esc(d.email)}</div>
+            <hr>
+            <div class="row">
+              <h3>Orders</h3>
+              <span class="badge">${esc(d.orderCount)}</span>
+            </div>
+            <div class="caption">${esc(d.totalValue)}</div>
+            <hr>
+            <h3>Most recent</h3>
+            <div class="row">
+              <div class="mono">${esc(d.latestOrderNumber)}</div>
+              <span class="badge">${esc(d.latestOrderStatus)}</span>
+            </div>
+            <div class="amount">${esc(d.latestOrderAmount)}</div>
+            <div class="caption">${esc(d.latestOrderPlaced)}</div>
+            ${scope}
+            <div class="actions">
+              <button class="primary" type="button" id="place">Place another order</button>
+              <button class="secondary" type="button" id="cancel"${/^(Draft|Submitted)$/.test(d.latestOrderStatus || "") ? "" : " disabled"}>Cancel ${esc(d.latestOrderNumber)}</button>
+            </div>
+            <div class="caption" id="status"></div>
+          </div>`;
+
+        // Re-attached on every render, because innerHTML replaces the nodes.
+        const place = document.getElementById("place");
+        if (place) place.onclick = () => placeOrder(place);
+        const cancel = document.getElementById("cancel");
+        if (cancel) cancel.onclick = () => cancelOrder(cancel, d.latestOrderNumber);
+      }
+
+      function say(msg) {
+        const el = document.getElementById("status");
+        if (el) el.textContent = msg;
+      }
+
+      /**
+       * The widget cannot reach Salesforce, or the BFF, directly - it is a
+       * sandboxed iframe. It asks the host to run the server's place_order
+       * tool, and the host hands back the refreshed card.
+       */
+      async function placeOrder(btn) {
+        if (!app) return say("No host connected - buttons are inert in a static preview.");
+        btn.disabled = true;
+        say("Placing order…");
+        try {
+          const res = await app.callServerTool({
+            name: "place_order",
+            arguments: { amount: 49.99 }
+          });
+          if (res?.isError) {
+            say(res.content?.[0]?.text || "The order could not be placed.");
+          } else {
+            render(parseToolResult(res));
+            say("Order placed in Salesforce.");
+          }
+        } catch (err) {
+          say("Could not place the order: " + (err?.message || err));
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      /** Cancels the most recent order through the cancel_order tool; the card re-renders from the result. */
+      async function cancelOrder(btn, orderNumber) {
+        if (!app) return say("No host connected - buttons are inert in a static preview.");
+        btn.disabled = true;
+        say("Cancelling " + orderNumber + "\u2026");
+        try {
+          const res = await app.callServerTool({ name: "cancel_order", arguments: { orderNumber } });
+          if (res?.isError) {
+            say(res.content?.[0]?.text || "The order could not be cancelled.");
+          } else {
+            render(parseToolResult(res));
+            say(res.content?.[1]?.text || "Order cancelled in Salesforce.");
+          }
+        } catch (err) {
+          say("Could not cancel: " + (err?.message || err));
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      function parseToolResult(result) {
+        const text = result?.content?.[0]?.text;
+        if (!text) return SAMPLE;
+        try { return JSON.parse(text); } catch { return SAMPLE; }
+      }
+
+      const { App } = globalThis.ExtApps;
+      app = new App({ name: "HxlOrderCard", version: "1.0.0" }, {}, { autoResize: true });
+      app.ontoolresult = (result) => render(parseToolResult(result));
+      await app.connect();
+      render(SAMPLE);
+    })();
+  </script>
+</body>
+</html>

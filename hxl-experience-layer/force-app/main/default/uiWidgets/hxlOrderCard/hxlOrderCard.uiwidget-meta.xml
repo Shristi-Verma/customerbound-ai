@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UiWidgetBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <masterLabel>HXL Order Card</masterLabel>
+    <description>Shows a customer's own orders, scoped by Salesforce sharing to the Contact behind the access token. Renders in Agentforce, Slack, ChatGPT and Claude from one definition.</description>
+    <widgetType>JSON</widgetType>
+</UiWidgetBundle>

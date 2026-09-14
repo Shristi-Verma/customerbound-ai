@@ -1,0 +1,21 @@
+{
+  "orgName": "HXL POC",
+  "edition": "Developer",
+  "features": ["Communities", "AuthorApex", "SiteDotCom"],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "communitiesSettings": {
+      "enableNetworksEnabled": true
+    },
+    "experienceBundleSettings": {
+      "enableExperienceBundleMetadata": true
+    },
+    "securitySettings": {
+      "passwordPolicies": {
+        "enableSetPasswordInApi": true
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Demo order record surfaced through the Headless Experience Layer.</description>
+    <enableActivities>false</enableActivities>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <label>HXL Order</label>
+    <nameField>
+        <displayFormat>ORD-{00000}</displayFormat>
+        <label>Order Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>HXL Orders</pluralLabel>
+    <sharingModel>Private</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

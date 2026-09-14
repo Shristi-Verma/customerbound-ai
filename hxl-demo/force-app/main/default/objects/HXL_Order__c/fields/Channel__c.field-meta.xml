@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Channel__c</fullName>
+    <label>Channel</label>
+    <description>The surface the order was placed from. Set by the HXL layer from the X-HXL-Channel header, never by the customer directly. This is the audit column: who (Owner Contact) did what, through which channel.</description>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value><fullName>web</fullName><default>true</default><label>Web</label></value>
+            <value><fullName>claude</fullName><default>false</default><label>Claude</label></value>
+            <value><fullName>chatgpt</fullName><default>false</default><label>ChatGPT</label></value>
+            <value><fullName>slack</fullName><default>false</default><label>Slack</label></value>
+            <value><fullName>codex</fullName><default>false</default><label>Codex</label></value>
+            <value><fullName>other</fullName><default>false</default><label>Other</label></value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

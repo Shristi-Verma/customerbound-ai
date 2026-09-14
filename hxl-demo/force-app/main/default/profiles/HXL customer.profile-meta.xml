@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Profile xmlns="http://soap.sforce.com/2006/04/metadata">
+    <!--
+      Partial profile: only the object permission that matters for the sharing
+      proof. Deploying this merges into the org's "HXL customer" profile.
+
+      viewAllRecords MUST be false. Found 2026-09-12: it was true in the org,
+      which let a customer token read any HXL_Order__c by Id - the "sharing
+      enforced" claim was actually the WHERE filter in getMyOrders. With View
+      All off, OWD Private + the HXL_Customer_Orders sharing set decide.
+    -->
+    <custom>true</custom>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>HXL_Order__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+</Profile>

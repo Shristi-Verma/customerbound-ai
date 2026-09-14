@@ -1,0 +1,72 @@
+{
+  "title": "HXL Order Card",
+  "description": "A customer's own orders, scoped by Salesforce sharing to the Contact behind the access token. One definition, rendered natively by Agentforce, Slack, ChatGPT and Claude.",
+  "type": "object",
+  "properties": {
+    "attributes": {
+      "lightning:type": "lightning__objectType",
+      "properties": {
+        "customerName": {
+          "title": "Customer Name",
+          "description": "Display name of the Contact the access token belongs to.",
+          "lightning:type": "lightning__textType"
+        },
+        "email": {
+          "title": "Email",
+          "description": "Email of the Contact on the token.",
+          "lightning:type": "lightning__textType"
+        },
+        "contactId": {
+          "title": "Contact Id",
+          "description": "The Contact id read off the token by Apex. Never supplied by the caller.",
+          "lightning:type": "lightning__textType"
+        },
+        "orderCount": {
+          "title": "Order Count",
+          "description": "How many orders this Contact can see.",
+          "lightning:type": "lightning__numberType"
+        },
+        "totalValue": {
+          "title": "Total Value",
+          "description": "Sum of the visible orders, preformatted for display.",
+          "lightning:type": "lightning__textType"
+        },
+        "latestOrderNumber": {
+          "title": "Latest Order Number",
+          "description": "Order number of the most recent order.",
+          "lightning:type": "lightning__textType"
+        },
+        "latestOrderStatus": {
+          "title": "Latest Order Status",
+          "description": "Status of the most recent order, such as Submitted or Shipped.",
+          "lightning:type": "lightning__textType"
+        },
+        "latestOrderAmount": {
+          "title": "Latest Order Amount",
+          "description": "Amount of the most recent order, preformatted for display.",
+          "lightning:type": "lightning__textType"
+        },
+        "latestOrderPlaced": {
+          "title": "Latest Order Placed",
+          "description": "When the most recent order was placed, preformatted for display.",
+          "lightning:type": "lightning__textType"
+        },
+        "identityMode": {
+          "title": "Identity Mode",
+          "description": "Whether the data came from a live named-user token or from local sample data.",
+          "lightning:type": "lightning__textType"
+        },
+        "isLiveIdentity": {
+          "title": "Is Live Identity",
+          "description": "True when the payload came from a real Headless Identity token rather than sample data.",
+          "lightning:type": "lightning__booleanType"
+        },
+        "scopeNote": {
+          "title": "Scope Note",
+          "description": "Plain-language statement of what Salesforce sharing enforced on this response.",
+          "lightning:type": "lightning__textType"
+        }
+      }
+    }
+  }
+}

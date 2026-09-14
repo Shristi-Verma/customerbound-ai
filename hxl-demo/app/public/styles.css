@@ -1,0 +1,430 @@
+/*
+ * HXL demo - dark, dense, instrument-panel styling.
+ *
+ * Rules this sheet holds itself to, because the demo is about credibility:
+ *   - one surface, hairline rules. No stacked cards floating on cards.
+ *   - one accent (plain white) for the primary action. Colour is reserved for
+ *     state: green ok, red error, blue outbound.
+ *   - monospace only where the content is literally machine data - endpoints,
+ *     tokens, ids, amounts. Prose is prose.
+ *   - no gradients, no glows, no uppercase letterspacing.
+ */
+
+:root {
+  --bg: #0a0a0c;
+  --surface: #0e0f12;
+  --line: #1b1d22;
+  --line-strong: #272a31;
+
+  --text: #e8e9ec;
+  --dim: #9599a2;
+  --faint: #61656e;
+
+  --blue: #6aa8ff;
+  --green: #46b96a;
+  --red: #f0625a;
+  --amber: #d5a442;
+
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", "SF Mono", Consolas, monospace;
+  --sans: "Inter", -apple-system, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+
+  --radius: 5px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { color-scheme: dark; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 13.5px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+code, .mono { font-family: var(--mono); font-size: 0.92em; }
+
+/* ------------------------------------------------------------------ *
+ * Header
+ * ------------------------------------------------------------------ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 24px;
+  height: 52px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+
+.brand h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brand .tag {
+  color: var(--faint);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Config readout: a status line, not a badge. */
+.config {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.config::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint);
+  flex: none;
+}
+
+.config.ok::before { background: var(--green); }
+.config.bad::before { background: var(--red); }
+.config.bad { color: var(--red); }
+
+/* ------------------------------------------------------------------ *
+ * Layout - two columns, hairline between. No card borders.
+ * ------------------------------------------------------------------ */
+/* The top row takes the slack so the column divider runs the full height and
+ * the wire log pins to the bottom instead of floating mid-page. */
+main {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  min-height: calc(100vh - 52px);
+}
+
+.pane { padding: 22px 24px; min-width: 0; }
+
+/* Cap the measure on wide monitors. Without this the order table's first and
+ * last columns end up a screen apart and stop reading as one row. */
+.acct-head, #token-facts, #orders, #new-order, #log, .pane--wire .label { max-width: 1000px; }
+.pane--auth { border-right: 1px solid var(--line); }
+.pane--wire { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+
+.pane > .label:first-child { margin-top: 0; }
+
+/* Section label. Sentence case, quiet - not a shouted heading. */
+.label {
+  margin: 26px 0 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--dim);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* The note sits with its heading, not flung to the far edge of the pane. */
+.label .note { font-weight: 400; color: var(--faint); }
+.label .ghost { margin-left: 4px; }
+
+/* Right column before sign-in: quiet, so the pane is not just a void. */
+.empty {
+  color: var(--faint);
+  font-size: 12.5px;
+  max-width: 46ch;
+}
+
+.empty .rule {
+  width: 28px;
+  height: 1px;
+  background: var(--line-strong);
+  margin-bottom: 14px;
+}
+
+#account:not([hidden]) ~ .empty { display: none; }
+
+/* ------------------------------------------------------------------ *
+ * Tabs - underline indicator, no pills
+ * ------------------------------------------------------------------ */
+.tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+
+.tabs button {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 1.5px solid transparent;
+  margin-bottom: -1px;
+  padding: 0 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--faint);
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.tabs button:hover { color: var(--dim); }
+.tabs button.active { color: var(--text); border-bottom-color: var(--text); }
+
+/* ------------------------------------------------------------------ *
+ * Forms
+ * ------------------------------------------------------------------ */
+.tabpane { display: none; }
+.tabpane.active { display: block; }
+
+/* The endpoint each flow drives. Reads as an API reference line. */
+.endpoint {
+  margin: 0 0 18px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--faint);
+  border-left: 1.5px solid var(--line-strong);
+  padding-left: 10px;
+}
+
+.endpoint b { color: var(--dim); font-weight: 500; }
+
+label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 7px 9px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.12s;
+}
+
+input::placeholder { color: #4a4e56; }
+input:focus { outline: none; border-color: #4c525c; }
+input[name="otp"] { font-family: var(--mono); letter-spacing: 0.14em; }
+
+button[type="submit"], .primary {
+  appearance: none;
+  margin-top: 4px;
+  padding: 7px 14px;
+  background: var(--text);
+  color: #0a0a0c;
+  border: 0;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+button[type="submit"]:hover, .primary:hover { opacity: 0.85; }
+
+.ghost {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.ghost:hover { color: var(--text); border-color: #3b3f47; }
+.ghost.small { padding: 2px 7px; font-size: 11px; }
+
+/* Scoped to <p> deliberately: the config readout also carries an .ok class. */
+p.ok, p.error {
+  margin: 12px 0 0;
+  font-size: 12px;
+  border-left: 1.5px solid;
+  padding-left: 10px;
+}
+
+p.ok { color: var(--green); border-color: var(--green); }
+p.error { color: var(--red); border-color: var(--red); }
+
+/* ------------------------------------------------------------------ *
+ * Account
+ * ------------------------------------------------------------------ */
+.acct-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.acct-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.acct-head .muted { margin: 2px 0 0; font-size: 12.5px; color: var(--faint); }
+
+/* Token facts: a two-column key/value grid, values in mono. */
+#token-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 20px;
+  margin: 0;
+  font-size: 12px;
+}
+
+#token-facts dt { color: var(--faint); }
+
+#token-facts dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ *
+ * Orders table
+ * ------------------------------------------------------------------ */
+#orders {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+#orders th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--faint);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+#orders td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--dim);
+}
+
+#orders tr:last-child td { border-bottom: 0; }
+
+/* order number */
+#orders td:nth-child(1) { font-family: var(--mono); font-size: 11.5px; color: var(--text); }
+/* status */
+#orders td:nth-child(2) { color: var(--dim); }
+/* amount - right aligned, tabular so the decimals line up */
+#orders th:nth-child(3), #orders td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  color: var(--text);
+  padding-right: 28px;
+}
+/* placed on */
+#orders th:nth-child(4), #orders td:nth-child(4) {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+#new-order {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+#new-order label { margin: 0; width: 150px; }
+#new-order button { margin-top: 0; }
+
+/* ------------------------------------------------------------------ *
+ * Wire log - a terminal, because that is what it is
+ * ------------------------------------------------------------------ */
+#log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+#log li {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 12px;
+  padding: 3px 0 3px 10px;
+  border-left: 1.5px solid var(--line-strong);
+}
+
+#log .ts { color: #4a4e56; }
+#log .msg { color: var(--dim); overflow-wrap: anywhere; }
+
+#log li.out { border-left-color: var(--blue); }
+#log li.out .msg { color: var(--blue); }
+#log li.in { border-left-color: var(--green); }
+#log li.err { border-left-color: var(--red); }
+#log li.err .msg { color: var(--red); }
+#log li.note { border-left-color: var(--amber); }
+#log li.note .msg { color: var(--amber); }
+
+#log pre {
+  grid-column: 2;
+  margin: 4px 0 6px;
+  color: var(--faint);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* Scrollbars, so the log does not sprout a chunky light-mode bar. */
+#log::-webkit-scrollbar { width: 8px; }
+#log::-webkit-scrollbar-thumb { background: #22252b; border-radius: 4px; }
+#log::-webkit-scrollbar-track { background: transparent; }
+
+/* ------------------------------------------------------------------ *
+ * Narrow screens - stack, drop the divider
+ * ------------------------------------------------------------------ */
+@media (max-width: 860px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .pane--auth { border-right: 0; border-bottom: 1px solid var(--line); }
+  header { height: auto; padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .pane { padding: 18px 16px; }
+}

@@ -12,9 +12,24 @@
         <viewAllRecords>false</viewAllRecords>
         <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
+    <objectPermissions>
+        <object>HXL_Action_Event__c</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
     <fieldPermissions>
         <field>HXL_Order__c.Staff_Visible__c</field>
         <editable>true</editable>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.Actor_User__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.Channel__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.Customer_Contact__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.From_Status__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.Note__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Action_Event__c.To_Status__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
 </PermissionSet>

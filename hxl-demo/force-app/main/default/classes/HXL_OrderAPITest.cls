@@ -231,4 +231,88 @@ private class HXL_OrderAPITest {
         }
         Test.stopTest();
     }
+
+    private static void assignStaffPermission() {
+        PermissionSet staff = [
+            SELECT Id FROM PermissionSet WHERE Name = 'HXL_Staff_Access' LIMIT 1
+        ];
+        Id userId = UserInfo.getUserId();
+        if ([SELECT COUNT() FROM PermissionSetAssignment
+             WHERE AssigneeId = :userId AND PermissionSetId = :staff.Id] == 0) {
+            System.runAs(new User(Id = userId)) {
+                insert new PermissionSetAssignment(AssigneeId = userId, PermissionSetId = staff.Id);
+            }
+        }
+    }
+
+    @IsTest
+    static void staffTransitionsCreateAuditButRejectedTransitionsDoNot() {
+        assignStaffPermission();
+        Contact customer = new Contact(LastName = 'Boundary Customer');
+        insert customer;
+        HXL_Order__c item = new HXL_Order__c(
+            Owner_Contact__c = customer.Id,
+            Status__c = 'Submitted',
+            Total_Amount__c = 125,
+            Placed_On__c = System.now(),
+            Staff_Visible__c = true
+        );
+        insert item;
+        item = [SELECT Name FROM HXL_Order__c WHERE Id = :item.Id];
+
+        HXL_OrderAPI.staffTestOverride = true;
+        mockRequest('PATCH');
+        RestContext.request.headers.put('X-HXL-Channel', 'claude');
+
+        Test.startTest();
+        HXL_OrderAPI.OrderDTO rejected = HXL_OrderAPI.cancelOrder(
+            item.Name, 'fulfill', 'Must be approved first'
+        );
+        System.assertEquals(409, RestContext.response.statusCode);
+        System.assertEquals('Submitted', rejected.status);
+        System.assertEquals(0, [SELECT COUNT() FROM HXL_Action_Event__c]);
+
+        mockRequest('PATCH');
+        RestContext.request.headers.put('X-HXL-Channel', 'claude');
+        HXL_OrderAPI.OrderDTO approved = HXL_OrderAPI.cancelOrder(
+            item.Name, 'approve', 'Reviewed by named staff'
+        );
+        Test.stopTest();
+
+        System.assertEquals(200, RestContext.response.statusCode);
+        System.assertEquals('Approved', approved.status);
+        System.assertEquals('approve', approved.lastAction);
+        mockRequest('GET');
+        HXL_OrderAPI.MeResponse portfolio = HXL_OrderAPI.getMyOrders();
+        System.assertEquals('staff', portfolio.persona);
+        System.assertEquals(1, portfolio.orders.size());
+        System.assertEquals('approve', portfolio.orders[0].lastAction);
+
+        mockRequest('PATCH');
+        RestContext.request.headers.put('X-HXL-Channel', 'claude');
+        HXL_OrderAPI.OrderDTO fulfilled = HXL_OrderAPI.cancelOrder(
+            item.Name, 'fulfill', 'Completed by named staff'
+        );
+        System.assertEquals(200, RestContext.response.statusCode);
+        System.assertEquals('Fulfilled', fulfilled.status);
+        System.assertEquals('fulfill', fulfilled.lastAction);
+
+        List<HXL_Action_Event__c> events = [
+            SELECT Action__c, From_Status__c, To_Status__c, Channel__c,
+                   Note__c, Actor_User__c, Customer_Contact__c
+            FROM HXL_Action_Event__c
+            ORDER BY Occurred_At__c ASC
+        ];
+        System.assertEquals(2, events.size());
+        HXL_Action_Event__c event = events[0];
+        System.assertEquals('approve', event.Action__c);
+        System.assertEquals('Submitted', event.From_Status__c);
+        System.assertEquals('Approved', event.To_Status__c);
+        System.assertEquals('claude', event.Channel__c);
+        System.assertEquals(UserInfo.getUserId(), event.Actor_User__c);
+        System.assertEquals(customer.Id, event.Customer_Contact__c);
+        System.assertEquals('fulfill', events[1].Action__c);
+        System.assertEquals('Approved', events[1].From_Status__c);
+        System.assertEquals('Fulfilled', events[1].To_Status__c);
+    }
 }

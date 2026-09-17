@@ -160,6 +160,28 @@ Expected verification:
 - staff notes are available to staff but absent from the customer payload; and
 - `Channel__c` records the originating host.
 
+### Verify the third-customer boundary and action evidence
+
+The ignored file `DEMO_BOUNDARY.local.md` contains the current third-customer record number. Keep it off screen because it is org-specific demo state.
+
+1. Sign in as staff and retrieve that exact record; confirm `404`.
+2. Choose a staff-visible record in `Submitted` status.
+3. Attempt `fulfill` first; confirm `409` and no new `HXL_Action_Event__c` row.
+4. Run `approve`, then `fulfill`; confirm two event rows.
+5. Refresh the staff console and confirm the latest audit summary contains actor and transition.
+6. Refresh the customer session and confirm the status changed while audit and internal-note values remain absent.
+
+Read-only audit verification query:
+
+```sql
+SELECT Name, HXL_Order__r.Name, Action__c, From_Status__c, To_Status__c,
+       Actor_User__r.Name, Customer_Contact__r.Name, Channel__c, Occurred_At__c
+FROM HXL_Action_Event__c
+ORDER BY Occurred_At__c DESC
+```
+
+The setup administrator needs `HXL_Portfolio_Setup` to inspect optional action-event fields. This permission set does not grant staff workflow actions.
+
 ## 9. Connect Claude Desktop
 
 ```powershell

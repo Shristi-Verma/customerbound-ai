@@ -104,6 +104,7 @@
                 <div class="row"><strong>${esc(item.customerName)}</strong><span class="badge">${esc(item.status)}</span></div>
                 <div class="caption mono">${esc(item.orderNumber)} · ${esc(item.amount)}</div>
                 ${item.staffNote ? `<div class="caption">Internal: ${esc(item.staffNote)}</div>` : ""}
+                ${item.lastAction ? `<div class="caption">Audit: ${esc(item.lastActionBy)} · ${esc(item.lastActionFromStatus)} → ${esc(item.lastActionToStatus)} · ${esc(item.lastAction)}</div>` : ""}
               </div>`).join("")}</div>` : ""}
             ${scope}
             <div class="actions">

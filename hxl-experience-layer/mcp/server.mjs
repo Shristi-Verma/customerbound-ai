@@ -263,9 +263,14 @@ function buildPayload(me) {
       amount: money(o.totalAmount),
       customerName: o.customerName || me.name || 'Customer',
       staffNote: o.staffNote || '',
+      lastAction: o.lastAction || '',
+      lastActionFromStatus: o.lastActionFromStatus || '',
+      lastActionToStatus: o.lastActionToStatus || '',
+      lastActionBy: o.lastActionBy || '',
+      lastActionAt: o.lastActionAt || '',
     })),
     scopeNote: me.persona === 'staff'
-      ? `Named staff user ${me.staffUserId} can see only records explicitly available through Salesforce sharing. Staff actions require the HXL Staff Access custom permission.`
+      ? `Named staff user ${me.staffUserId} can see only records explicitly available through Salesforce sharing. Successful transitions create an immutable action event; rejected transitions create no event.`
       : `Apex read Contact ${me.contactId} off the access token. No user id was passed by this server or by the model. Records belonging to any other Contact are not in this response.`,
   };
 }

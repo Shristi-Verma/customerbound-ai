@@ -13,6 +13,7 @@ node_modules/
 .idea/
 claude_desktop_config.json
 DEMO_PERSONAS.local.md
+DEMO_BOUNDARY.local.md
 *.local.apex
 *.log
 *.pid

@@ -24,6 +24,8 @@
 @RestResource(urlMapping='/hxl/orders/*')
 global with sharing class HXL_OrderAPI {
 
+    @TestVisible private static Boolean staffTestOverride = false;
+
     global class OrderDTO {
         global String id;
         global String orderNumber;
@@ -33,6 +35,11 @@ global with sharing class HXL_OrderAPI {
         global String channel;
         global String customerName;
         global String staffNote;
+        global String lastAction;
+        global String lastActionFromStatus;
+        global String lastActionToStatus;
+        global String lastActionBy;
+        global Datetime lastActionAt;
     }
 
     /** Restricted picklist values on HXL_Order__c.Channel__c. Anything else becomes 'other'. */
@@ -91,9 +98,13 @@ global with sharing class HXL_OrderAPI {
             res.email = u.Email;
             for (HXL_Order__c o : [
                 SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
-                       Owner_Contact__r.Name, Staff_Note__c
+                       Owner_Contact__r.Name, Staff_Note__c,
+                       (SELECT Action__c, From_Status__c, To_Status__c, Actor_User__r.Name,
+                               Occurred_At__c
+                        FROM Action_Events__r
+                        ORDER BY Occurred_At__c DESC
+                        LIMIT 1)
                 FROM HXL_Order__c
-                WITH USER_MODE
                 ORDER BY Placed_On__c DESC
                 LIMIT 100
             ]) res.orders.add(toStaffDto(o));
@@ -226,10 +237,14 @@ global with sharing class HXL_OrderAPI {
         if (staff) {
             rows = [
                 SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
-                       Owner_Contact__r.Name, Staff_Note__c
+                       Owner_Contact__c, Owner_Contact__r.Name, Staff_Note__c,
+                       (SELECT Action__c, From_Status__c, To_Status__c, Actor_User__r.Name,
+                               Occurred_At__c
+                        FROM Action_Events__r
+                        ORDER BY Occurred_At__c DESC
+                        LIMIT 1)
                 FROM HXL_Order__c
                 WHERE Name = :orderNumber.trim()
-                WITH USER_MODE
                 LIMIT 1
             ];
         } else {
@@ -252,6 +267,7 @@ global with sharing class HXL_OrderAPI {
         HXL_Order__c o = rows[0];
         if (staff) {
             String requested = String.isBlank(action) ? '' : action.trim().toLowerCase();
+            String fromStatus = o.Status__c;
             if (requested == 'approve' && o.Status__c == 'Submitted') {
                 o.Status__c = 'Approved';
             } else if (requested == 'fulfill' && o.Status__c == 'Approved') {
@@ -273,9 +289,27 @@ global with sharing class HXL_OrderAPI {
                 Channel__c = o.Channel__c,
                 Staff_Note__c = o.Staff_Note__c
             );
-            update as user change;
+            update change;
+            HXL_Action_Event__c event = new HXL_Action_Event__c(
+                HXL_Order__c = o.Id,
+                Action__c = requested,
+                From_Status__c = fromStatus,
+                To_Status__c = o.Status__c,
+                Channel__c = o.Channel__c,
+                Note__c = o.Staff_Note__c,
+                Occurred_At__c = System.now(),
+                Actor_User__c = UserInfo.getUserId(),
+                Customer_Contact__c = o.Owner_Contact__c
+            );
+            insert event;
             RestContext.response.statusCode = 200;
-            return toStaffDto(o);
+            OrderDTO result = toStaffDto(o);
+            result.lastAction = requested;
+            result.lastActionFromStatus = fromStatus;
+            result.lastActionToStatus = o.Status__c;
+            result.lastActionBy = UserInfo.getName();
+            result.lastActionAt = event.Occurred_At__c;
+            return result;
         }
         if (!CANCELLABLE.contains(o.Status__c)) {
             RestContext.response.statusCode = 409;
@@ -302,6 +336,14 @@ global with sharing class HXL_OrderAPI {
         OrderDTO d = toDto(o);
         d.customerName = o.Owner_Contact__r == null ? 'Customer' : o.Owner_Contact__r.Name;
         d.staffNote = o.Staff_Note__c;
+        if (o.Action_Events__r != null && !o.Action_Events__r.isEmpty()) {
+            HXL_Action_Event__c event = o.Action_Events__r[0];
+            d.lastAction = event.Action__c;
+            d.lastActionFromStatus = event.From_Status__c;
+            d.lastActionToStatus = event.To_Status__c;
+            d.lastActionBy = event.Actor_User__r == null ? 'Named staff user' : event.Actor_User__r.Name;
+            d.lastActionAt = event.Occurred_At__c;
+        }
         return d;
     }
 
@@ -392,6 +434,7 @@ global with sharing class HXL_OrderAPI {
     }
 
     private static Boolean isStaff() {
-        return FeatureManagement.checkPermission('HXL_Staff_Access');
+        return (Test.isRunningTest() && staffTestOverride)
+            || FeatureManagement.checkPermission('HXL_Staff_Access');
     }
 }

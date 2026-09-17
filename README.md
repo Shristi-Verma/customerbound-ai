@@ -21,6 +21,8 @@ The security boundary remains in Salesforce: the identity layer retains the name
 - Salesforce-defined interactive experience rendered in Claude Desktop
 - Role-aware MCP capabilities for session management, identity inspection, protected retrieval, customer actions, and staff approval/fulfilment
 - A named Customer Operations persona with access to an explicitly shared two-customer portfolio
+- A third-customer negative boundary proving that staff access is also limited
+- Immutable action-event evidence for every successful staff transition
 - Salesforce-enforced record isolation for direct cross-user requests and deliberately broad searches
 - User-context write-back subject to sharing, permissions, and business rules
 - Channel and owner audit values recorded in Salesforce
@@ -83,6 +85,7 @@ Claude Desktop rendering and both named customer and named staff flows are verif
 
 - `document-output/CustomerBound_AI_Executive_Summary_and_Approval_Request.docx`
 - `HXL_POC_DEMO_STORY.md`
+- `POC_ACCEPTANCE_EVIDENCE.md`
 - `TRACK_B_HOST_VERIFICATION.md`
 - `hxl-demo/HXL_ORG_CONTEXT.md`
 - `hxl-experience-layer/README.md`

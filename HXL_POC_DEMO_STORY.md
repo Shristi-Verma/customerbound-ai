@@ -141,6 +141,26 @@ Sign out, open a separate Claude conversation, and sign in with the Staff person
 
 Point out that the console contains records for exactly two demo customers. Approve one Submitted item, then fulfil it and add an internal note. Return to the customer persona and show that the customer payload contains neither another customer's records nor the staff-only note.
 
+### Beat 8: prove staff is not a superuser
+
+Use the third-customer record number stored in the local boundary proof file.
+
+Say:
+
+> Staff access is broader than one customer, but it is not global. This third customer was not assigned to the portfolio.
+
+Request that exact record. Salesforce returns `404` even though the identifier is correct.
+
+### Beat 9: prove rules and evidence
+
+Choose a Submitted portfolio record and try to fulfil it before approval. Point out the `409` result and that no action event was created. Then approve and fulfil the same record.
+
+Show the two Salesforce action-event rows and say:
+
+> Rejected work leaves the data unchanged. Successful work records who acted, for which customer, what changed, through which channel, and when.
+
+Return to the customer conversation. Refresh and show the completed status without exposing the internal note or action-event history.
+
 ## Honest host status
 
 - Claude Desktop: live MCP host and HXL card render verified.

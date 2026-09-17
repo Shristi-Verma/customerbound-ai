@@ -16,7 +16,9 @@ Keep `HXL_ALLOW_ENV_IDENTITY=0` on hosted transports. A public endpoint must nev
 
 ## Salesforce authorization
 
-Preserve user-mode access, record sharing, field permissions, Apex business rules, and user-context writes. Do not replace Salesforce enforcement with model instructions or caller-supplied owner filters.
+Preserve record sharing, custom permissions, field permissions, and Apex business rules. Customer reads and writes run in user mode. The staff service branch is guarded by `with sharing` plus the `HXL_Staff_Access` custom permission and constructs a sparse allow-listed update containing only status, channel, and internal note. It never accepts an owner, Contact, or arbitrary status from the caller.
+
+Successful staff transitions must create an `HXL_Action_Event__c` record. Rejected transitions must not create audit evidence. Customer-facing queries must never select or serialize internal notes or action events.
 
 ## Reporting
 

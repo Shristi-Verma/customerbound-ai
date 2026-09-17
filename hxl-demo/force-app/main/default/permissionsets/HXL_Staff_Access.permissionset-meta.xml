@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>HXL Staff Access</label>
+    <description>Controlled staff access for CustomerBound AI. Record visibility still comes from Salesforce sharing.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>HXL_Staff_Access</name>
+    </customPermissions>
+    <classAccesses>
+        <apexClass>HXL_OrderAPI</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <objectPermissions>
+        <object>HXL_Order__c</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>true</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Contact</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <fieldPermissions><field>HXL_Order__c.Total_Amount__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Placed_On__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Channel__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Owner_Contact__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Staff_Note__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Staff_Visible__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Contact.Email</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <userPermissions><name>ApiEnabled</name><enabled>true</enabled></userPermissions>
+</PermissionSet>

@@ -19,7 +19,8 @@ The security boundary remains in Salesforce: the identity layer retains the name
 
 - Named external-user authentication through a server-side BFF
 - Salesforce-defined interactive experience rendered in Claude Desktop
-- Eight focused MCP capabilities for session management, identity inspection, protected retrieval, search, creation, and permitted updates
+- Role-aware MCP capabilities for session management, identity inspection, protected retrieval, customer actions, and staff approval/fulfilment
+- A named Customer Operations persona with access to an explicitly shared two-customer portfolio
 - Salesforce-enforced record isolation for direct cross-user requests and deliberately broad searches
 - User-context write-back subject to sharing, permissions, and business rules
 - Channel and owner audit values recorded in Salesforce
@@ -76,7 +77,7 @@ The MCP server does not hold a Salesforce integration credential. Tokens remain 
 
 ## POC status
 
-Claude Desktop rendering and the named-user flow are verified. Hosted endpoints have been smoke-tested through a temporary HTTPS tunnel. Production readiness work includes MCP OAuth, stable secured hosting, durable sessions, second-user validation, additional identity journeys, monitoring, and licensing confirmation.
+Claude Desktop rendering and both named customer and named staff flows are verified. The customer is isolated to their own Salesforce records; the staff persona can review an explicitly shared two-customer portfolio and approve or fulfil eligible work. Hosted endpoints have been smoke-tested through a temporary HTTPS tunnel. Production readiness work includes MCP OAuth, stable secured hosting, durable sessions, additional identity journeys, monitoring, and licensing confirmation.
 
 ## Documentation
 

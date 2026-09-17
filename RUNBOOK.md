@@ -136,6 +136,30 @@ npm --prefix hxl-experience-layer run smoke:http
 
 Confirm that the session resolves the intended external user, retrieves only records visible to that user, and applies Salesforce business rules to permitted actions. Repeat with a second user before treating the isolation proof as production evidence.
 
+### Verify the two-persona story
+
+Keep demo credentials only in the ignored root file `DEMO_PERSONAS.local.md`. Never add this file to Git. Use separate host conversations for the customer and staff personas, and sign out before switching.
+
+The staff design uses all of these Salesforce controls together:
+
+- a Customer Community Plus named user;
+- the `HXL_Staff_Access` permission set and custom permission;
+- the `CustomerBound_Staff_Portfolio` public group;
+- the `HXL_Staff_Portfolio_Access` criteria sharing rule; and
+- `Staff_Visible__c = true` only on records intentionally included in the demo portfolio.
+
+The external client app must be admin-approved for `HXL_Staff_Access`. For an External Client App, verify this through Setup or a `SetupEntityAccess` record; legacy `applicationVisibilities` permission-set XML does not apply.
+
+For high-volume Customer Community users, keep the named customer in `Owner_Contact__c` and use an internal technical owner. Those external users have no role, so their technically owned records do not generate criteria-rule shares. The customer sharing set continues to grant access using the Contact relationship.
+
+Expected verification:
+
+- the customer sees only their own records and cannot retrieve the second customer's record by identifier;
+- the staff session reports `persona = staff` and sees only the explicitly shared two-customer portfolio;
+- staff can move `Submitted` to `Approved`, then `Approved` to `Fulfilled`;
+- staff notes are available to staff but absent from the customer payload; and
+- `Channel__c` records the originating host.
+
 ## 9. Connect Claude Desktop
 
 ```powershell
@@ -178,7 +202,7 @@ Press `Ctrl+C` in each server terminal. After a system restart, rerun the two co
 1. Implement MCP OAuth and remove password-based MCP configuration.
 2. Add durable, encrypted session storage with expiry and revocation.
 3. Deploy behind a stable secured domain with monitoring and rate limits.
-4. Complete separate-session testing with at least two named users.
+4. Automate separate-session regression testing for the named customer and named staff personas.
 5. Validate registration, passwordless access, and recovery with the required client attestation.
 6. Confirm Experience Cloud and API licensing with Salesforce.
 7. Add automated security, integration, and end-to-end tests.

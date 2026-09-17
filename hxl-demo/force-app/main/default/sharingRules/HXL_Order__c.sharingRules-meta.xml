@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SharingRules xmlns="http://soap.sforce.com/2006/04/metadata">
+    <sharingCriteriaRules>
+        <fullName>HXL_Staff_Portfolio_Access</fullName>
+        <accessLevel>Edit</accessLevel>
+        <description>Shares only records explicitly assigned to the CustomerBound AI staff portfolio.</description>
+        <label>HXL Staff Portfolio Access</label>
+        <sharedTo>
+            <group>CustomerBound_Staff_Portfolio</group>
+        </sharedTo>
+        <criteriaItems>
+            <field>Staff_Visible__c</field>
+            <operation>equals</operation>
+            <value>true</value>
+        </criteriaItems>
+    </sharingCriteriaRules>
+</SharingRules>

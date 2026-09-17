@@ -31,6 +31,8 @@ global with sharing class HXL_OrderAPI {
         global Decimal totalAmount;
         global Datetime placedOn;
         global String channel;
+        global String customerName;
+        global String staffNote;
     }
 
     /** Restricted picklist values on HXL_Order__c.Channel__c. Anything else becomes 'other'. */
@@ -43,6 +45,8 @@ global with sharing class HXL_OrderAPI {
         global String name;
         global String email;
         global List<OrderDTO> orders;
+        global String persona;
+        global String staffUserId;
         /** Set on GET /hxl/orders/<id|name>: what was asked for, and whether sharing let us see it. */
         global String lookup;
         global Boolean found;
@@ -57,9 +61,12 @@ global with sharing class HXL_OrderAPI {
     @HttpGet
     global static MeResponse getMyOrders() {
         Id contactId = currentContactId();
+        Boolean staff = isStaff();
 
         MeResponse res = new MeResponse();
         res.orders = new List<OrderDTO>();
+        res.persona = staff ? 'staff' : 'customer';
+        res.staffUserId = staff ? UserInfo.getUserId() : null;
 
         String lookup = lookupFromPath();
         if (lookup != null) {
@@ -71,20 +78,29 @@ global with sharing class HXL_OrderAPI {
             return searchOrders(res, contactId, q);
         }
 
-        if (contactId == null) {
+        if (contactId == null && !staff) {
             // Guest / integration token: authenticated to the org, but not a
             // person. Return an empty envelope rather than leaking anything.
             RestContext.response.statusCode = 200;
             return res;
         }
 
-        Contact c = [
-            SELECT Id, Name, Email
-            FROM Contact
-            WHERE Id = :contactId
-            WITH USER_MODE
-            LIMIT 1
-        ];
+        if (staff) {
+            User u = [SELECT Id, Name, Email FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+            res.name = u.Name;
+            res.email = u.Email;
+            for (HXL_Order__c o : [
+                SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
+                       Owner_Contact__r.Name, Staff_Note__c
+                FROM HXL_Order__c
+                WITH USER_MODE
+                ORDER BY Placed_On__c DESC
+                LIMIT 100
+            ]) res.orders.add(toStaffDto(o));
+            return res;
+        }
+
+        Contact c = [SELECT Id, Name, Email FROM Contact WHERE Id = :contactId WITH USER_MODE LIMIT 1];
         res.contactId = c.Id;
         res.name = c.Name;
         res.email = c.Email;
@@ -118,7 +134,7 @@ global with sharing class HXL_OrderAPI {
     @HttpPost
     global static OrderDTO createOrder(Decimal totalAmount, String channel) {
         Id contactId = currentContactId();
-        if (contactId == null) {
+        if (contactId == null || isStaff()) {
             RestContext.response.statusCode = 403;
             return null;
         }
@@ -195,9 +211,10 @@ global with sharing class HXL_OrderAPI {
      * 404 before any business rule runs. Shipped/Cancelled orders answer 409.
      */
     @HttpPatch
-    global static OrderDTO cancelOrder(String orderNumber) {
+    global static OrderDTO cancelOrder(String orderNumber, String action, String staffNote) {
         Id contactId = currentContactId();
-        if (contactId == null) {
+        Boolean staff = isStaff();
+        if (contactId == null && !staff) {
             RestContext.response.statusCode = 403;
             return null;
         }
@@ -205,13 +222,25 @@ global with sharing class HXL_OrderAPI {
             RestContext.response.statusCode = 400;
             return null;
         }
-        List<HXL_Order__c> rows = [
-            SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c
-            FROM HXL_Order__c
-            WHERE Name = :orderNumber.trim()
-            WITH USER_MODE
-            LIMIT 1
-        ];
+        List<HXL_Order__c> rows;
+        if (staff) {
+            rows = [
+                SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
+                       Owner_Contact__r.Name, Staff_Note__c
+                FROM HXL_Order__c
+                WHERE Name = :orderNumber.trim()
+                WITH USER_MODE
+                LIMIT 1
+            ];
+        } else {
+            rows = [
+                SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c
+                FROM HXL_Order__c
+                WHERE Name = :orderNumber.trim()
+                WITH USER_MODE
+                LIMIT 1
+            ];
+        }
         if (rows.isEmpty()) {
             // A JSON body, not null: a null return makes the platform answer
             // with an empty non-JSON 404 that clients misread as a broken host.
@@ -221,6 +250,33 @@ global with sharing class HXL_OrderAPI {
             return missing;
         }
         HXL_Order__c o = rows[0];
+        if (staff) {
+            String requested = String.isBlank(action) ? '' : action.trim().toLowerCase();
+            if (requested == 'approve' && o.Status__c == 'Submitted') {
+                o.Status__c = 'Approved';
+            } else if (requested == 'fulfill' && o.Status__c == 'Approved') {
+                o.Status__c = 'Fulfilled';
+            } else {
+                RestContext.response.statusCode = 409;
+                return toStaffDto(o);
+            }
+            if (!String.isBlank(staffNote)) o.Staff_Note__c = staffNote.left(1000);
+            String ch = RestContext.request == null ? null : RestContext.request.headers.get('X-HXL-Channel');
+            ch = String.isBlank(ch) ? 'other' : ch.trim().toLowerCase();
+            o.Channel__c = CHANNELS.contains(ch) ? ch : 'other';
+            // Update only fields the staff action is allowed to change. Reusing
+            // the queried record would make user-mode DML validate unrelated,
+            // read-only fields that were populated by the SELECT.
+            HXL_Order__c change = new HXL_Order__c(
+                Id = o.Id,
+                Status__c = o.Status__c,
+                Channel__c = o.Channel__c,
+                Staff_Note__c = o.Staff_Note__c
+            );
+            update as user change;
+            RestContext.response.statusCode = 200;
+            return toStaffDto(o);
+        }
         if (!CANCELLABLE.contains(o.Status__c)) {
             RestContext.response.statusCode = 409;
             return toDto(o);
@@ -239,6 +295,13 @@ global with sharing class HXL_OrderAPI {
         d.totalAmount = o.Total_Amount__c;
         d.placedOn = o.Placed_On__c;
         d.channel = o.Channel__c;
+        return d;
+    }
+
+    private static OrderDTO toStaffDto(HXL_Order__c o) {
+        OrderDTO d = toDto(o);
+        d.customerName = o.Owner_Contact__r == null ? 'Customer' : o.Owner_Contact__r.Name;
+        d.staffNote = o.Staff_Note__c;
         return d;
     }
 
@@ -326,5 +389,9 @@ global with sharing class HXL_OrderAPI {
             LIMIT 1
         ];
         return users.isEmpty() ? null : users[0].ContactId;
+    }
+
+    private static Boolean isStaff() {
+        return FeatureManagement.checkPermission('HXL_Staff_Access');
     }
 }

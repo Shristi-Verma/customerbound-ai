@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Staff_Visible__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Marks POC records assigned to the controlled CustomerBound AI staff portfolio.</description>
+    <label>Staff Visible</label>
+    <type>Checkbox</type>
+</CustomField>

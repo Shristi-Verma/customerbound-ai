@@ -405,6 +405,24 @@ export async function cancelOrder(accessToken, orderNumber, instanceUrl, channel
   );
 }
 
+/** Staff-only state transition. Salesforce custom permission and sharing enforce access. */
+export async function staffOrderAction(accessToken, orderNumber, action, staffNote, instanceUrl, channel = 'web') {
+  const host = apiHost(instanceUrl);
+  return call(
+    `${host}/services/apexrest/hxl/orders`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-HXL-Channel': channel,
+      },
+      body: JSON.stringify({ orderNumber, action, staffNote }),
+    },
+    `PATCH staff ${action} ${orderNumber}`
+  );
+}
+
 export async function createOrder(accessToken, totalAmount, instanceUrl, channel = 'web') {
   const host = apiHost(instanceUrl);
   return call(

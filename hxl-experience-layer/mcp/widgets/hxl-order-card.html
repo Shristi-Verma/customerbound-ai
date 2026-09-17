@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>HXL Order Card</title>
+  <title>CustomerBound AI Action Center</title>
   <style>
     /* The host owns the theme; these variables fall back for a standalone open. */
     html, body { margin: 0; background: transparent; }
@@ -41,6 +41,9 @@
     button { border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 650; cursor: pointer; }
     .primary { background: #1A1A2E; color: #fff; }
     .secondary { background: #e7e5e4; color: #1c1917; }
+    .items { display: grid; gap: 7px; margin-top: 8px; }
+    .item { padding: 9px; border: 1px solid var(--color-border-default, #e7e5e4); border-radius: 10px; }
+    .item .caption { margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -50,6 +53,7 @@
     (async () => {
       let app = null;   // set once connected; the buttons need it
       const SAMPLE = {
+        persona: "customer",
         customerName: "Ada Lovelace",
         email: "ada@example.com",
         contactId: "(sample - no live token)",
@@ -68,6 +72,7 @@
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
       function render(d) {
+        const staff = d.persona === "staff";
         const scope = d.isLiveIdentity && d.scopeNote
           ? `<div class="callout"><strong>Scoped by Salesforce sharing</strong>${esc(d.scopeNote)}</div>`
           : "";
@@ -79,9 +84,10 @@
             </div>
             <div class="name">${esc(d.customerName)}</div>
             <div class="caption">${esc(d.email)}</div>
+            <div class="caption"><strong>${staff ? "Staff Operations Console" : "Customer Action Center"}</strong></div>
             <hr>
             <div class="row">
-              <h3>Orders</h3>
+              <h3>${staff ? "Assigned customer activity" : "My activity"}</h3>
               <span class="badge">${esc(d.orderCount)}</span>
             </div>
             <div class="caption">${esc(d.totalValue)}</div>
@@ -93,10 +99,19 @@
             </div>
             <div class="amount">${esc(d.latestOrderAmount)}</div>
             <div class="caption">${esc(d.latestOrderPlaced)}</div>
+            ${staff ? `<div class="items">${(d.visibleItems || []).map((item) => `
+              <div class="item">
+                <div class="row"><strong>${esc(item.customerName)}</strong><span class="badge">${esc(item.status)}</span></div>
+                <div class="caption mono">${esc(item.orderNumber)} · ${esc(item.amount)}</div>
+                ${item.staffNote ? `<div class="caption">Internal: ${esc(item.staffNote)}</div>` : ""}
+              </div>`).join("")}</div>` : ""}
             ${scope}
             <div class="actions">
-              <button class="primary" type="button" id="place">Place another order</button>
-              <button class="secondary" type="button" id="cancel"${/^(Draft|Submitted)$/.test(d.latestOrderStatus || "") ? "" : " disabled"}>Cancel ${esc(d.latestOrderNumber)}</button>
+              ${staff
+                ? `<button class="primary" type="button" id="approve"${d.latestOrderStatus === "Submitted" ? "" : " disabled"}>Approve ${esc(d.latestOrderNumber)}</button>
+                   <button class="secondary" type="button" id="fulfill"${d.latestOrderStatus === "Approved" ? "" : " disabled"}>Fulfil ${esc(d.latestOrderNumber)}</button>`
+                : `<button class="primary" type="button" id="place">Create activity</button>
+                   <button class="secondary" type="button" id="cancel"${/^(Draft|Submitted)$/.test(d.latestOrderStatus || "") ? "" : " disabled"}>Cancel ${esc(d.latestOrderNumber)}</button>`}
             </div>
             <div class="caption" id="status"></div>
           </div>`;
@@ -106,6 +121,10 @@
         if (place) place.onclick = () => placeOrder(place);
         const cancel = document.getElementById("cancel");
         if (cancel) cancel.onclick = () => cancelOrder(cancel, d.latestOrderNumber);
+        const approve = document.getElementById("approve");
+        if (approve) approve.onclick = () => staffAction(approve, d.latestOrderNumber, "approve_order");
+        const fulfill = document.getElementById("fulfill");
+        if (fulfill) fulfill.onclick = () => staffAction(fulfill, d.latestOrderNumber, "fulfill_order");
       }
 
       function say(msg) {
@@ -160,6 +179,28 @@
         }
       }
 
+      async function staffAction(btn, orderNumber, toolName) {
+        if (!app) return say("No host connected - buttons are inert in a static preview.");
+        btn.disabled = true;
+        const verb = toolName === "approve_order" ? "Approving" : "Fulfilling";
+        say(verb + " " + orderNumber + "…");
+        try {
+          const res = await app.callServerTool({
+            name: toolName,
+            arguments: { orderNumber, staffNote: "Updated from CustomerBound AI" }
+          });
+          if (res?.isError) say(res.content?.[0]?.text || "The staff action failed.");
+          else {
+            render(parseToolResult(res));
+            say(res.content?.[1]?.text || "Salesforce updated.");
+          }
+        } catch (err) {
+          say("Could not update: " + (err?.message || err));
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
       function parseToolResult(result) {
         const text = result?.content?.[0]?.text;
         if (!text) return SAMPLE;
@@ -167,7 +208,7 @@
       }
 
       const { App } = globalThis.ExtApps;
-      app = new App({ name: "HxlOrderCard", version: "1.0.0" }, {}, { autoResize: true });
+      app = new App({ name: "CustomerBoundActionCenter", version: "1.1.0" }, {}, { autoResize: true });
       app.ontoolresult = (result) => render(parseToolResult(result));
       await app.connect();
       render(SAMPLE);

@@ -245,6 +245,7 @@ function buildPayload(me) {
   const latest = orders[0];
 
   return {
+    persona: me.persona || 'customer',
     customerName: me.name || 'Signed-in customer',
     email: me.email || '',
     contactId: me.contactId || '(no Contact on this token)',
@@ -256,9 +257,16 @@ function buildPayload(me) {
     latestOrderPlaced: shortDate(latest?.placedOn),
     identityMode: 'named user',
     isLiveIdentity: true,
-    scopeNote:
-      `Apex read Contact ${me.contactId} off the access token. No user id was passed by this ` +
-      `server or by the model. Orders belonging to any other Contact are not in this response.`,
+    visibleItems: orders.slice(0, 8).map((o) => ({
+      orderNumber: o.orderNumber,
+      status: o.status,
+      amount: money(o.totalAmount),
+      customerName: o.customerName || me.name || 'Customer',
+      staffNote: o.staffNote || '',
+    })),
+    scopeNote: me.persona === 'staff'
+      ? `Named staff user ${me.staffUserId} can see only records explicitly available through Salesforce sharing. Staff actions require the HXL Staff Access custom permission.`
+      : `Apex read Contact ${me.contactId} off the access token. No user id was passed by this server or by the model. Records belonging to any other Contact are not in this response.`,
   };
 }
 
@@ -358,13 +366,13 @@ export function createServer() {
     {
       title: 'Sign In',
       description:
-        'Sign this chat session in as a Salesforce customer through the Headless Identity layer. ' +
+        'Sign this chat session in as a named Salesforce customer or staff user through the Headless Identity layer. ' +
         'The server keeps only a session cookie for this chat; the Salesforce token stays in the ' +
-        'identity layer. Every later call in this chat acts as this customer and sees only what ' +
+        'identity layer. Every later call in this chat acts as this named user and sees only what ' +
         'Salesforce sharing lets them see. Returns the customer\'s order card.',
       inputSchema: {
-        username: z.string().min(1).describe('Customer username (Experience Cloud site login)'),
-        password: z.string().min(1).describe('Customer password'),
+        username: z.string().min(1).describe('Customer or staff username'),
+        password: z.string().min(1).describe('Password for that named user'),
       },
       annotations: { readOnlyHint: false, title: 'Sign In' },
       _meta: CARD_META,
@@ -709,6 +717,68 @@ export function createServer() {
         };
       }
     }
+  );
+
+  async function runStaffAction(orderNumber, action, staffNote, extra) {
+    try {
+      const id = await identityFor(extra);
+      if (!id) throw new Error('not signed in - call sign_in first');
+      const res = await fetch(`${BFF}/api/orders/${encodeURIComponent(orderNumber)}/staff-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: id.cookie, 'X-HXL-Channel': id.channel },
+        body: JSON.stringify({ action, staffNote: staffNote || '' }),
+      });
+      if (res.status === 401) {
+        sessions.delete(id.key);
+        throw new SessionExpired();
+      }
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 403) throw new Error('the signed-in user does not have staff permission');
+      if (res.status === 404) throw new Error('the record is not shared with this staff user');
+      if (res.status === 409) throw new Error(`the ${action} transition is not valid from ${body.detail?.status || body.status || 'the current status'}`);
+      if (!res.ok) throw new Error(body.error || `staff action failed (${res.status})`);
+      const payload = await cardFor(extra);
+      return {
+        content: [
+          { type: 'text', text: JSON.stringify(payload) },
+          { type: 'text', text: `${body.orderNumber} is now ${body.status}, updated by the named staff user via ${id.channel}.` },
+        ],
+      };
+    } catch (err) {
+      return { isError: true, content: [{ type: 'text', text: `Could not ${action} ${orderNumber}: ${err.message}` }] };
+    }
+  }
+
+  registerAppTool(
+    server,
+    'approve_order',
+    {
+      title: 'Approve Submitted Work',
+      description: 'Staff-only action. Approve a submitted record that Salesforce sharing makes visible to this named staff user.',
+      inputSchema: {
+        orderNumber: z.string().min(1).max(40),
+        staffNote: z.string().max(1000).optional(),
+      },
+      annotations: { readOnlyHint: false, title: 'Approve Submitted Work' },
+      _meta: CARD_META,
+    },
+    async ({ orderNumber, staffNote }, extra) => runStaffAction(orderNumber, 'approve', staffNote, extra)
+  );
+
+  registerAppTool(
+    server,
+    'fulfill_order',
+    {
+      title: 'Fulfil Approved Work',
+      description: 'Staff-only action. Fulfil an approved record that Salesforce sharing makes visible to this named staff user.',
+      inputSchema: {
+        orderNumber: z.string().min(1).max(40),
+        staffNote: z.string().max(1000).optional(),
+      },
+      annotations: { readOnlyHint: false, title: 'Fulfil Approved Work' },
+      _meta: CARD_META,
+    },
+    async ({ orderNumber, staffNote }, extra) => runStaffAction(orderNumber, 'fulfill', staffNote, extra)
   );
 
   return server;

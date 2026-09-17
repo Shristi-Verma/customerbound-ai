@@ -10,6 +10,8 @@
             <sorted>false</sorted>
             <value><fullName>Draft</fullName><default>true</default><label>Draft</label></value>
             <value><fullName>Submitted</fullName><default>false</default><label>Submitted</label></value>
+            <value><fullName>Approved</fullName><default>false</default><label>Approved</label></value>
+            <value><fullName>Fulfilled</fullName><default>false</default><label>Fulfilled</label></value>
             <value><fullName>Shipped</fullName><default>false</default><label>Shipped</label></value>
             <value><fullName>Cancelled</fullName><default>false</default><label>Cancelled</label></value>
         </valueSetDefinition>

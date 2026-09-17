@@ -2,7 +2,7 @@
 
 ## The one-sentence story
 
-An AI assistant can read and change Salesforce data as one named customer, while Salesforce sharing keeps every other customer’s records outside the assistant’s reach.
+An AI assistant can serve a named customer and a named operations user in different experiences, while Salesforce sharing decides exactly which records and actions each persona receives.
 
 ## Audience takeaway
 
@@ -36,13 +36,29 @@ Transition:
 
 Claude Desktop renders the live HXL order card. Ada sees her orders. Asking directly for Grace Hopper’s order returns not found. An intentionally unfiltered search still returns only Ada’s rows because Salesforce sharing limits the query. A button in Claude creates or cancels a real Salesforce order as Ada.
 
-### 4. The decision
+### 4. Extend the story to operations
 
-The POC proves the architecture on one real MCP host. Production work now concentrates on identity brokering, hosting, a second user, and licensing confirmation rather than rebuilding the user experience for every channel.
+Sign out and start a separate Claude conversation with the Customer Operations persona. Ask:
+
+> Sign in as staff and show my assigned customer activity.
+
+Say:
+
+> This is not an administrator or broad integration user. Salesforce shares a deliberately selected portfolio containing two demo customers. The same MCP server changes the experience into a Staff Operations Console based on the authenticated permission—not on a role claimed by the prompt.
+
+Choose a Submitted item and approve it, then fulfil it. Add a short internal note.
+
+Say:
+
+> Salesforce enforces the state transition and records the channel. The internal note is visible to staff and is not returned in the customer payload.
+
+### 5. The decision
+
+The POC proves the architecture on one real MCP host with both customer and staff personas. Production work now concentrates on identity brokering, hosting, and licensing confirmation rather than rebuilding the user experience for every channel or persona.
 
 ## Live demo runbook
 
-Target time: 8 to 10 minutes.
+Target time: 10 to 12 minutes.
 
 ### Beat 1: establish identity
 
@@ -117,6 +133,14 @@ Say:
 
 > The owner came from the token. The channel came from the integration layer. The record is visible in Salesforce with a complete audit trail.
 
+### Beat 7: switch to named staff
+
+Sign out, open a separate Claude conversation, and sign in with the Staff persona from the local ignored persona file. Ask:
+
+> Show my assigned customer activity.
+
+Point out that the console contains records for exactly two demo customers. Approve one Submitted item, then fulfil it and add an internal note. Return to the customer persona and show that the customer payload contains neither another customer's records nor the staff-only note.
+
 ## Honest host status
 
 - Claude Desktop: live MCP host and HXL card render verified.
@@ -131,19 +155,19 @@ Phrase this as host rollout evidence, not as a defect in the core architecture. 
 
 Closing line:
 
-> We proved that a useful AI experience can act as a customer without turning the agent into a superuser. The next investment is the production identity broker, not another channel-specific order card.
+> We proved that one governed AI experience can serve customers and operations staff without turning either persona into a superuser. The next investment is the production identity broker, not another channel-specific interface.
 
 Decision requested:
 
 1. Confirm Experience Cloud and API licensing with Salesforce.
 2. Fund a production spike for MCP OAuth and durable session storage.
-3. Add a second customer identity and repeat the cross-access demonstration on a hosted MCP surface.
+3. Repeat the customer and staff isolation proof on a stable hosted MCP surface.
 
 ## Demo safety
 
 - Start the BFF on port 3000 before opening Claude.
 - Confirm `Who am I in HXL?` before presenting.
+- Keep customer and staff demonstrations in separate Claude conversations.
 - Keep credentials, cookies, access tokens, and refresh tokens off screen.
 - Capture screenshots of the identity result, rendered card, denied order, and audit row before the meeting.
 - If a live step fails, show the captured result and continue. Do not troubleshoot during the presentation.
-

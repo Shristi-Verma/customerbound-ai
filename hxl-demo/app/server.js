@@ -257,6 +257,21 @@ app.post(
   })
 );
 
+app.post(
+  '/api/orders/:lookup/staff-action',
+  route(async (req, res) => {
+    const s = session(req, res);
+    const token = requireTokens(s);
+    const lookup = String(req.params.lookup || '').slice(0, 40);
+    const action = String(req.body.action || '').toLowerCase();
+    const staffNote = String(req.body.staffNote || '').slice(0, 1000);
+    if (!['approve', 'fulfill'].includes(action))
+      throw new hxl.HxlError(400, 'action must be approve or fulfill');
+    const channel = String(req.headers['x-hxl-channel'] || 'web').toLowerCase().slice(0, 32);
+    res.json(await hxl.staffOrderAction(token, lookup, action, staffNote, s.tokens.instance_url, channel));
+  })
+);
+
 app.get(
   '/api/orders/:lookup',
   route(async (req, res) => {

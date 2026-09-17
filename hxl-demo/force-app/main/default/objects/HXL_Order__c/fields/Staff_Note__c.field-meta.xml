@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Staff_Note__c</fullName>
+    <description>Internal staff note captured through the named-user agent experience. Not exposed to customer personas.</description>
+    <label>Staff Note</label>
+    <length>1000</length>
+    <type>LongTextArea</type>
+    <visibleLines>4</visibleLines>
+</CustomField>

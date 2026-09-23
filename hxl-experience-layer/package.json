@@ -8,6 +8,7 @@
     "demo": "node scripts/preview.mjs --open",
     "preview": "node scripts/preview.mjs",
     "config": "node scripts/print-claude-config.mjs",
+    "config:personas": "node scripts/install-claude-personas.mjs",
     "mcp": "node mcp/server.mjs",
     "deploy": "sf project deploy start --source-dir force-app --target-org hxl",
     "verify": "sf org list metadata --metadata-type UiWidgetBundle --target-org hxl",

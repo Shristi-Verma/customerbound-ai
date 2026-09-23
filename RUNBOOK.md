@@ -214,6 +214,18 @@ Staff: Use CustomerBound to show my assigned activity and request more informati
 Supervisor: Use CustomerBound to show work waiting for my approval and approve <record>.
 ```
 
+### Install the smooth three-persona Claude setup
+
+Run this once after the local persona file has been created:
+
+```powershell
+npm --prefix hxl-experience-layer run config:personas
+```
+
+The installer preserves existing Claude settings, creates a timestamped backup, and adds `customerbound-customer`, `customerbound-staff`, and `customerbound-supervisor`. It reads credentials from the ignored persona file without printing them. Fully quit and reopen Claude Desktop afterward.
+
+Open three Claude conversations before presenting and invoke the matching connection in each. Every stdio server process automatically signs in as its configured named user, so no live sign-in or sign-out is required. This password-based shortcut is for the local POC only; production uses MCP OAuth.
+
 ## 10. Test a hosted MCP surface
 
 Keep ports 3000 and 8787 running, then start a temporary tunnel:

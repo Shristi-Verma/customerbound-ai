@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Supervisor_Approved__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>True only after a named supervisor completes the second approval.</description>
+    <label>Supervisor Approved</label>
+    <type>Checkbox</type>
+</CustomField>

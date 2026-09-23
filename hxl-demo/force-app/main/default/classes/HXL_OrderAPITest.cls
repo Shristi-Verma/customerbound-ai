@@ -165,13 +165,13 @@ private class HXL_OrderAPITest {
 
             // Cancel: someone else's is a 404 before any business rule.
             mockRequest('PATCH');
-            HXL_OrderAPI.OrderDTO gone = HXL_OrderAPI.cancelOrder(theirs.Name, null, null);
+            HXL_OrderAPI.OrderDTO gone = HXL_OrderAPI.cancelOrder(theirs.Name, null, null, null);
             System.assertEquals(404, RestContext.response.statusCode);
             System.assertEquals(null, gone.status, 'Nothing about the hidden order may leak, not even its status');
 
             // Cancel: own Shipped order is a 409, own Submitted order succeeds.
             mockRequest('PATCH');
-            HXL_OrderAPI.OrderDTO shipped = HXL_OrderAPI.cancelOrder(mine.Name, null, null);
+            HXL_OrderAPI.OrderDTO shipped = HXL_OrderAPI.cancelOrder(mine.Name, null, null, null);
             if (shipped != null) {
                 System.assertEquals(409, RestContext.response.statusCode);
                 System.assertEquals('Shipped', shipped.status);
@@ -180,7 +180,7 @@ private class HXL_OrderAPITest {
             HXL_OrderAPI.OrderDTO fresh = HXL_OrderAPI.createOrder(3.00, 'claude');
             if (fresh != null) {
                 mockRequest('PATCH');
-                HXL_OrderAPI.OrderDTO cancelled = HXL_OrderAPI.cancelOrder(fresh.orderNumber, null, null);
+                HXL_OrderAPI.OrderDTO cancelled = HXL_OrderAPI.cancelOrder(fresh.orderNumber, null, null, null);
                 System.assertEquals(200, RestContext.response.statusCode);
                 System.assertEquals('Cancelled', cancelled.status);
             }
@@ -266,7 +266,7 @@ private class HXL_OrderAPITest {
 
         Test.startTest();
         HXL_OrderAPI.OrderDTO rejected = HXL_OrderAPI.cancelOrder(
-            item.Name, 'fulfill', 'Must be approved first'
+            item.Name, 'fulfill', 'Must be approved first', null
         );
         System.assertEquals(409, RestContext.response.statusCode);
         System.assertEquals('Submitted', rejected.status);
@@ -275,7 +275,7 @@ private class HXL_OrderAPITest {
         mockRequest('PATCH');
         RestContext.request.headers.put('X-HXL-Channel', 'claude');
         HXL_OrderAPI.OrderDTO approved = HXL_OrderAPI.cancelOrder(
-            item.Name, 'approve', 'Reviewed by named staff'
+            item.Name, 'approve', 'Reviewed by named staff', null
         );
         Test.stopTest();
 
@@ -291,7 +291,7 @@ private class HXL_OrderAPITest {
         mockRequest('PATCH');
         RestContext.request.headers.put('X-HXL-Channel', 'claude');
         HXL_OrderAPI.OrderDTO fulfilled = HXL_OrderAPI.cancelOrder(
-            item.Name, 'fulfill', 'Completed by named staff'
+            item.Name, 'fulfill', 'Completed by named staff', null
         );
         System.assertEquals(200, RestContext.response.statusCode);
         System.assertEquals('Fulfilled', fulfilled.status);

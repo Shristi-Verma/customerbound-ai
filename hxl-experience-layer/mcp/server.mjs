@@ -263,13 +263,16 @@ function buildPayload(me) {
       amount: money(o.totalAmount),
       customerName: o.customerName || me.name || 'Customer',
       staffNote: o.staffNote || '',
+      customerMessage: o.customerMessage || '',
+      requiresSupervisor: Boolean(o.requiresSupervisor),
+      supervisorApproved: Boolean(o.supervisorApproved),
       lastAction: o.lastAction || '',
       lastActionFromStatus: o.lastActionFromStatus || '',
       lastActionToStatus: o.lastActionToStatus || '',
       lastActionBy: o.lastActionBy || '',
       lastActionAt: o.lastActionAt || '',
     })),
-    scopeNote: me.persona === 'staff'
+    scopeNote: ['staff', 'supervisor'].includes(me.persona)
       ? `Named staff user ${me.staffUserId} can see only records explicitly available through Salesforce sharing. Successful transitions create an immutable action event; rejected transitions create no event.`
       : `Apex read Contact ${me.contactId} off the access token. No user id was passed by this server or by the model. Records belonging to any other Contact are not in this response.`,
   };
@@ -724,6 +727,44 @@ export function createServer() {
     }
   );
 
+  registerAppTool(
+    server,
+    'respond_to_information',
+    {
+      title: 'Respond to Information Request',
+      description: 'Customer-only action. Supply requested information and resubmit visible work for staff review.',
+      inputSchema: {
+        orderNumber: z.string().min(1).max(40),
+        customerMessage: z.string().min(1).max(1000),
+      },
+      annotations: { readOnlyHint: false, title: 'Respond to Information Request' },
+      _meta: CARD_META,
+    },
+    async ({ orderNumber, customerMessage }, extra) => {
+      try {
+        const id = await identityFor(extra);
+        if (!id) throw new Error('not signed in - call sign_in first');
+        const res = await fetch(`${BFF}/api/orders/${encodeURIComponent(orderNumber)}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: id.cookie, 'X-HXL-Channel': id.channel },
+          body: JSON.stringify({ customerMessage }),
+        });
+        if (res.status === 401) { sessions.delete(id.key); throw new SessionExpired(); }
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 404) throw new Error('the record is not visible to this customer');
+        if (res.status === 409) throw new Error(`a response is not valid from ${body.detail?.status || body.status || 'the current status'}`);
+        if (!res.ok) throw new Error(body.error || `response failed (${res.status})`);
+        const payload = await cardFor(extra);
+        return { content: [
+          { type: 'text', text: JSON.stringify(payload) },
+          { type: 'text', text: `${body.orderNumber} was resubmitted by the named customer via ${id.channel}.` },
+        ] };
+      } catch (err) {
+        return { isError: true, content: [{ type: 'text', text: `Could not respond for ${orderNumber}: ${err.message}` }] };
+      }
+    }
+  );
+
   async function runStaffAction(orderNumber, action, staffNote, extra) {
     try {
       const id = await identityFor(extra);
@@ -756,6 +797,19 @@ export function createServer() {
 
   registerAppTool(
     server,
+    'request_information',
+    {
+      title: 'Request More Information',
+      description: 'Staff-only action. Pause visible submitted work and ask its customer for more information.',
+      inputSchema: { orderNumber: z.string().min(1).max(40), staffNote: z.string().min(1).max(1000) },
+      annotations: { readOnlyHint: false, title: 'Request More Information' },
+      _meta: CARD_META,
+    },
+    async ({ orderNumber, staffNote }, extra) => runStaffAction(orderNumber, 'request_info', staffNote, extra)
+  );
+
+  registerAppTool(
+    server,
     'approve_order',
     {
       title: 'Approve Submitted Work',
@@ -768,6 +822,19 @@ export function createServer() {
       _meta: CARD_META,
     },
     async ({ orderNumber, staffNote }, extra) => runStaffAction(orderNumber, 'approve', staffNote, extra)
+  );
+
+  registerAppTool(
+    server,
+    'supervisor_approve',
+    {
+      title: 'Complete Supervisor Approval',
+      description: 'Supervisor-only action. Complete the required second approval for high-value work.',
+      inputSchema: { orderNumber: z.string().min(1).max(40), staffNote: z.string().max(1000).optional() },
+      annotations: { readOnlyHint: false, title: 'Complete Supervisor Approval' },
+      _meta: CARD_META,
+    },
+    async ({ orderNumber, staffNote }, extra) => runStaffAction(orderNumber, 'supervisor_approve', staffNote, extra)
   );
 
   registerAppTool(

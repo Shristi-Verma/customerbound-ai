@@ -196,6 +196,24 @@ The user-facing MCP server name is `customerbound`. Demo prompts should say:
 Use CustomerBound to tell me who I am and show my assigned activity.
 ```
 
+### Run the full persona acceptance matrix
+
+Keep the BFF running, then run:
+
+```powershell
+npm --prefix hxl-demo run acceptance
+```
+
+The command reads Customer, Staff, and Supervisor credentials only from the ignored `DEMO_PERSONAS.local.md` and prints no secrets. It creates one $750 demo activity and proves automatic routing, the information exchange, mandatory supervisor escalation, staff bypass denial, named supervisor approval, fulfilment, customer visibility, and internal-note redaction. A successful run reports 17 passed checks and the created record number.
+
+Recommended Claude prompts:
+
+```text
+Customer: Use CustomerBound to show my activity and create a new request for $750.
+Staff: Use CustomerBound to show my assigned activity and request more information for <record>.
+Supervisor: Use CustomerBound to show work waiting for my approval and approve <record>.
+```
+
 ## 10. Test a hosted MCP surface
 
 Keep ports 3000 and 8787 running, then start a temporary tunnel:
@@ -230,7 +248,7 @@ Press `Ctrl+C` in each server terminal. After a system restart, rerun the two co
 1. Implement MCP OAuth and remove password-based MCP configuration.
 2. Add durable, encrypted session storage with expiry and revocation.
 3. Deploy behind a stable secured domain with monitoring and rate limits.
-4. Automate separate-session regression testing for the named customer and named staff personas.
+4. Run the committed multi-persona acceptance matrix in CI using protected test credentials.
 5. Validate registration, passwordless access, and recovery with the required client attestation.
 6. Confirm Experience Cloud and API licensing with Salesforce.
 7. Add automated security, integration, and end-to-end tests.

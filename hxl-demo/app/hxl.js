@@ -399,7 +399,7 @@ export async function cancelOrder(accessToken, orderNumber, instanceUrl, channel
         'Content-Type': 'application/json',
         'X-HXL-Channel': channel,
       },
-      body: JSON.stringify({ orderNumber }),
+      body: JSON.stringify({ orderNumber, action: null, staffNote: null, customerMessage: null }),
     },
     'PATCH cancel ' + orderNumber
   );
@@ -417,9 +417,27 @@ export async function staffOrderAction(accessToken, orderNumber, action, staffNo
         'Content-Type': 'application/json',
         'X-HXL-Channel': channel,
       },
-      body: JSON.stringify({ orderNumber, action, staffNote }),
+      body: JSON.stringify({ orderNumber, action, staffNote, customerMessage: null }),
     },
     `PATCH staff ${action} ${orderNumber}`
+  );
+}
+
+/** Customer response to a staff information request. */
+export async function respondToInformation(accessToken, orderNumber, customerMessage, instanceUrl, channel = 'web') {
+  const host = apiHost(instanceUrl);
+  return call(
+    `${host}/services/apexrest/hxl/orders`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-HXL-Channel': channel,
+      },
+      body: JSON.stringify({ orderNumber, action: 'respond', staffNote: null, customerMessage }),
+    },
+    `PATCH customer respond ${orderNumber}`
   );
 }
 

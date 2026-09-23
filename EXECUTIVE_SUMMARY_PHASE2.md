@@ -6,7 +6,7 @@
 
 ## Executive outcome
 
-CustomerBound AI demonstrates one governed service journey across two AI personas. A named customer can retrieve and act on only their own Salesforce records. A named operations user receives a different experience and can review only an explicitly assigned portfolio, approve eligible work, and complete it. Salesforce identity, sharing, custom permissions, and business rules—not prompt wording—select the persona, data boundary, and available actions.
+CustomerBound AI demonstrates one governed service journey across three named AI personas. A named customer can retrieve and act on only their own Salesforce records. A named operations user receives a different experience and can review only an explicitly assigned portfolio. High-value work requires a separate named supervisor, and ordinary staff cannot bypass that second approval. Salesforce identity, sharing, custom permissions, and business rules—not prompt wording—select the persona, data boundary, and available actions.
 
 The same capability layer supports a customer action center and a staff operations console. No broad integration identity is used for business access, and the model never supplies a customer identifier to establish ownership.
 
@@ -14,11 +14,12 @@ The same capability layer supports a customer action center and a staff operatio
 
 1. A named customer creates or reviews a request through an AI host.
 2. Salesforce derives the customer Contact from the access token.
-3. A named staff user sees the request only when it belongs to the assigned portfolio.
-4. An invalid state transition is rejected by Salesforce business logic.
-5. A valid review moves the request from Submitted to Approved, then to Fulfilled.
-6. Each successful transition creates an action event containing actor, customer, previous state, new state, channel, note, and timestamp.
-7. The customer sees the updated state but never receives staff-only notes or action-event data.
+3. Salesforce automatically routes the new request into the controlled staff portfolio.
+4. Staff can request information; the same customer responds and resubmits.
+5. High-value work stops at Pending Supervisor Approval until a separate supervisor approves it.
+6. An invalid or unauthorized state transition is rejected by Salesforce business logic.
+7. Each successful transition creates an action event containing actor, customer, previous state, new state, channel, note, and timestamp.
+8. The customer sees the updated state but never receives staff-only notes or action-event data.
 
 ## Access-boundary proof
 
@@ -42,6 +43,9 @@ Exact-record requests are made without application owner filters. Salesforce sha
 | Successful-action audit | Two events created per completed lifecycle |
 | Customer isolation | Customer session returned only its own 17 records |
 | Internal confidentiality | Customer payload contained no staff notes or action events |
+| Three-persona lifecycle | Customer → Staff → Supervisor → Staff completed successfully |
+| Separation of duties | Ordinary staff supervisor-approval attempt returned `409` |
+| Automated end to end | 17 live multi-persona checks passed |
 | Automated regression | Five Apex tests passed; 213/221 executable lines covered in the service class |
 
 ## Architecture validated

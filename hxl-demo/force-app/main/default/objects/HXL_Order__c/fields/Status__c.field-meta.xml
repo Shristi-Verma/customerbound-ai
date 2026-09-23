@@ -10,6 +10,9 @@
             <sorted>false</sorted>
             <value><fullName>Draft</fullName><default>true</default><label>Draft</label></value>
             <value><fullName>Submitted</fullName><default>false</default><label>Submitted</label></value>
+            <value><fullName>Information Required</fullName><default>false</default><label>Information Required</label></value>
+            <value><fullName>Resubmitted</fullName><default>false</default><label>Resubmitted</label></value>
+            <value><fullName>Pending Supervisor Approval</fullName><default>false</default><label>Pending Supervisor Approval</label></value>
             <value><fullName>Approved</fullName><default>false</default><label>Approved</label></value>
             <value><fullName>Fulfilled</fullName><default>false</default><label>Fulfilled</label></value>
             <value><fullName>Shipped</fullName><default>false</default><label>Shipped</label></value>

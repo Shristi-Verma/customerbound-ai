@@ -39,6 +39,7 @@
         <editable>true</editable>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Customer_Message__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
     <userPermissions>
         <name>ApiEnabled</name>
         <enabled>true</enabled>

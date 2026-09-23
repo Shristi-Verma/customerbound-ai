@@ -25,6 +25,8 @@
 global with sharing class HXL_OrderAPI {
 
     @TestVisible private static Boolean staffTestOverride = false;
+    @TestVisible private static Boolean supervisorTestOverride = false;
+    private static final Decimal SUPERVISOR_THRESHOLD = 500;
 
     global class OrderDTO {
         global String id;
@@ -35,6 +37,9 @@ global with sharing class HXL_OrderAPI {
         global String channel;
         global String customerName;
         global String staffNote;
+        global String customerMessage;
+        global Boolean requiresSupervisor;
+        global Boolean supervisorApproved;
         global String lastAction;
         global String lastActionFromStatus;
         global String lastActionToStatus;
@@ -69,10 +74,11 @@ global with sharing class HXL_OrderAPI {
     global static MeResponse getMyOrders() {
         Id contactId = currentContactId();
         Boolean staff = isStaff();
+        Boolean supervisor = isSupervisor();
 
         MeResponse res = new MeResponse();
         res.orders = new List<OrderDTO>();
-        res.persona = staff ? 'staff' : 'customer';
+        res.persona = supervisor ? 'supervisor' : (staff ? 'staff' : 'customer');
         res.staffUserId = staff ? UserInfo.getUserId() : null;
 
         String lookup = lookupFromPath();
@@ -98,7 +104,8 @@ global with sharing class HXL_OrderAPI {
             res.email = u.Email;
             for (HXL_Order__c o : [
                 SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
-                       Owner_Contact__r.Name, Staff_Note__c,
+                       Owner_Contact__r.Name, Staff_Note__c, Customer_Message__c,
+                       Requires_Supervisor__c, Supervisor_Approved__c,
                        (SELECT Action__c, From_Status__c, To_Status__c, Actor_User__r.Name,
                                Occurred_At__c
                         FROM Action_Events__r
@@ -117,7 +124,8 @@ global with sharing class HXL_OrderAPI {
         res.email = c.Email;
 
         for (HXL_Order__c o : [
-            SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c
+            SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
+                   Customer_Message__c
             FROM HXL_Order__c
             WHERE Owner_Contact__c = :contactId
             WITH USER_MODE
@@ -165,9 +173,16 @@ global with sharing class HXL_OrderAPI {
             Channel__c = ch
         );
         insert as user o;
+        // High-volume external users cannot participate in role-based sharing.
+        // An asynchronous system-context step normalizes only the technical
+        // owner to the customer's Account owner and opts the record into the
+        // criteria-based staff portfolio. Owner_Contact__c remains the named
+        // business identity derived from the token.
+        System.enqueueJob(new RouteToStaff(o.Id));
 
         HXL_Order__c saved = [
-            SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c
+            SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
+                   Customer_Message__c
             FROM HXL_Order__c
             WHERE Id = :o.Id
             WITH USER_MODE
@@ -222,7 +237,7 @@ global with sharing class HXL_OrderAPI {
      * 404 before any business rule runs. Shipped/Cancelled orders answer 409.
      */
     @HttpPatch
-    global static OrderDTO cancelOrder(String orderNumber, String action, String staffNote) {
+    global static OrderDTO cancelOrder(String orderNumber, String action, String staffNote, String customerMessage) {
         Id contactId = currentContactId();
         Boolean staff = isStaff();
         if (contactId == null && !staff) {
@@ -237,7 +252,8 @@ global with sharing class HXL_OrderAPI {
         if (staff) {
             rows = [
                 SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
-                       Owner_Contact__c, Owner_Contact__r.Name, Staff_Note__c,
+                       Owner_Contact__c, Owner_Contact__r.Name, Staff_Note__c, Customer_Message__c,
+                       Requires_Supervisor__c, Supervisor_Approved__c,
                        (SELECT Action__c, From_Status__c, To_Status__c, Actor_User__r.Name,
                                Occurred_At__c
                         FROM Action_Events__r
@@ -249,7 +265,8 @@ global with sharing class HXL_OrderAPI {
             ];
         } else {
             rows = [
-                SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c
+                SELECT Id, Name, Status__c, Total_Amount__c, Placed_On__c, Channel__c,
+                       Customer_Message__c, Owner_Contact__c
                 FROM HXL_Order__c
                 WHERE Name = :orderNumber.trim()
                 WITH USER_MODE
@@ -268,8 +285,20 @@ global with sharing class HXL_OrderAPI {
         if (staff) {
             String requested = String.isBlank(action) ? '' : action.trim().toLowerCase();
             String fromStatus = o.Status__c;
-            if (requested == 'approve' && o.Status__c == 'Submitted') {
+            if (requested == 'request_info' && new Set<String>{'Submitted', 'Resubmitted'}.contains(o.Status__c)) {
+                o.Status__c = 'Information Required';
+            } else if (requested == 'approve' && new Set<String>{'Submitted', 'Resubmitted'}.contains(o.Status__c)) {
+                if (o.Total_Amount__c >= SUPERVISOR_THRESHOLD) {
+                    o.Status__c = 'Pending Supervisor Approval';
+                    o.Requires_Supervisor__c = true;
+                    o.Supervisor_Approved__c = false;
+                } else {
+                    o.Status__c = 'Approved';
+                }
+            } else if (requested == 'supervisor_approve' && isSupervisor()
+                       && o.Status__c == 'Pending Supervisor Approval') {
                 o.Status__c = 'Approved';
+                o.Supervisor_Approved__c = true;
             } else if (requested == 'fulfill' && o.Status__c == 'Approved') {
                 o.Status__c = 'Fulfilled';
             } else {
@@ -287,21 +316,12 @@ global with sharing class HXL_OrderAPI {
                 Id = o.Id,
                 Status__c = o.Status__c,
                 Channel__c = o.Channel__c,
-                Staff_Note__c = o.Staff_Note__c
+                Staff_Note__c = o.Staff_Note__c,
+                Requires_Supervisor__c = o.Requires_Supervisor__c,
+                Supervisor_Approved__c = o.Supervisor_Approved__c
             );
             update change;
-            HXL_Action_Event__c event = new HXL_Action_Event__c(
-                HXL_Order__c = o.Id,
-                Action__c = requested,
-                From_Status__c = fromStatus,
-                To_Status__c = o.Status__c,
-                Channel__c = o.Channel__c,
-                Note__c = o.Staff_Note__c,
-                Occurred_At__c = System.now(),
-                Actor_User__c = UserInfo.getUserId(),
-                Customer_Contact__c = o.Owner_Contact__c
-            );
-            insert event;
+            HXL_Action_Event__c event = recordEvent(o, requested, fromStatus, o.Staff_Note__c);
             RestContext.response.statusCode = 200;
             OrderDTO result = toStaffDto(o);
             result.lastAction = requested;
@@ -310,6 +330,24 @@ global with sharing class HXL_OrderAPI {
             result.lastActionBy = UserInfo.getName();
             result.lastActionAt = event.Occurred_At__c;
             return result;
+        }
+        String requested = String.isBlank(action) ? '' : action.trim().toLowerCase();
+        if (requested == 'respond') {
+            if (o.Status__c != 'Information Required' || String.isBlank(customerMessage)) {
+                RestContext.response.statusCode = 409;
+                return toDto(o);
+            }
+            String fromStatus = o.Status__c;
+            String ch = RestContext.request == null ? null : RestContext.request.headers.get('X-HXL-Channel');
+            ch = String.isBlank(ch) ? 'other' : ch.trim().toLowerCase();
+            o.Status__c = 'Resubmitted';
+            o.Customer_Message__c = customerMessage.left(1000);
+            o.Channel__c = CHANNELS.contains(ch) ? ch : 'other';
+            update as user new HXL_Order__c(Id=o.Id, Status__c=o.Status__c,
+                Customer_Message__c=o.Customer_Message__c, Channel__c=o.Channel__c);
+            recordEvent(o, 'customer_response', fromStatus, o.Customer_Message__c);
+            RestContext.response.statusCode = 200;
+            return toDto(o);
         }
         if (!CANCELLABLE.contains(o.Status__c)) {
             RestContext.response.statusCode = 409;
@@ -329,6 +367,10 @@ global with sharing class HXL_OrderAPI {
         d.totalAmount = o.Total_Amount__c;
         d.placedOn = o.Placed_On__c;
         d.channel = o.Channel__c;
+        Map<String, Object> populated = o.getPopulatedFieldsAsMap();
+        if (populated.containsKey('Customer_Message__c')) d.customerMessage = (String) populated.get('Customer_Message__c');
+        if (populated.containsKey('Requires_Supervisor__c')) d.requiresSupervisor = (Boolean) populated.get('Requires_Supervisor__c');
+        if (populated.containsKey('Supervisor_Approved__c')) d.supervisorApproved = (Boolean) populated.get('Supervisor_Approved__c');
         return d;
     }
 
@@ -436,5 +478,40 @@ global with sharing class HXL_OrderAPI {
     private static Boolean isStaff() {
         return (Test.isRunningTest() && staffTestOverride)
             || FeatureManagement.checkPermission('HXL_Staff_Access');
+    }
+
+    private static Boolean isSupervisor() {
+        return (Test.isRunningTest() && supervisorTestOverride)
+            || FeatureManagement.checkPermission('HXL_Supervisor_Access');
+    }
+
+    private static HXL_Action_Event__c recordEvent(HXL_Order__c o, String action, String fromStatus, String note) {
+        HXL_Action_Event__c event = new HXL_Action_Event__c(
+            HXL_Order__c = o.Id,
+            Action__c = action,
+            From_Status__c = fromStatus,
+            To_Status__c = o.Status__c,
+            Channel__c = o.Channel__c,
+            Note__c = note,
+            Occurred_At__c = System.now(),
+            Actor_User__c = UserInfo.getUserId(),
+            Customer_Contact__c = o.Owner_Contact__c
+        );
+        insert event;
+        return event;
+    }
+
+    private class RouteToStaff implements Queueable {
+        private Id recordId;
+        private RouteToStaff(Id recordId) { this.recordId = recordId; }
+        public void execute(QueueableContext context) {
+            HXL_Order__c routed = [
+                SELECT Id, Owner_Contact__r.Account.OwnerId
+                FROM HXL_Order__c WHERE Id = :recordId LIMIT 1
+            ];
+            routed.OwnerId = routed.Owner_Contact__r.Account.OwnerId;
+            routed.Staff_Visible__c = true;
+            update routed;
+        }
     }
 }

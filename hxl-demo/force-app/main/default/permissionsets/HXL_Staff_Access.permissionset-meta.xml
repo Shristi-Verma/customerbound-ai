@@ -44,6 +44,9 @@
     <fieldPermissions><field>HXL_Order__c.Owner_Contact__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
     <fieldPermissions><field>HXL_Order__c.Staff_Note__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
     <fieldPermissions><field>HXL_Order__c.Staff_Visible__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Customer_Message__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Requires_Supervisor__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>HXL_Order__c.Supervisor_Approved__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
     <fieldPermissions><field>Contact.Email</field><editable>false</editable><readable>true</readable></fieldPermissions>
     <fieldPermissions><field>HXL_Action_Event__c.From_Status__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
     <fieldPermissions><field>HXL_Action_Event__c.To_Status__c</field><editable>true</editable><readable>true</readable></fieldPermissions>

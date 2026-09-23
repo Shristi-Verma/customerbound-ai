@@ -163,6 +163,16 @@ Show the two Salesforce action-event rows and say:
 
 Return to the customer conversation. Refresh and show the completed status without exposing the internal note or action-event history.
 
+### Beat 10: show collaboration, escalation, and separation of duties
+
+As the customer, create a high-value request. Explain that CustomerBound automatically routes it into the controlled operations portfolio without the model choosing an owner. As Staff, request more information. Return to Customer, answer the request, and resubmit it.
+
+Staff validates the response and approves it. Because its value is at least $500, Salesforce moves it to `Pending Supervisor Approval` instead of `Approved`. First demonstrate that Staff cannot perform the supervisor action. Then open the separate Supervisor conversation and complete the second approval. Return to Staff to fulfil the work, then return to Customer to show the final status without internal notes.
+
+Say:
+
+> The conversation changed three times, but the authorization model never did. Salesforce identified each named person, sharing controlled visibility, the workflow controlled each transition, and the audit trail recorded every successful action.
+
 ## Honest host status
 
 - Claude Desktop: live MCP host and HXL card render verified.

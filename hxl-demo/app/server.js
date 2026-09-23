@@ -265,10 +265,23 @@ app.post(
     const lookup = String(req.params.lookup || '').slice(0, 40);
     const action = String(req.body.action || '').toLowerCase();
     const staffNote = String(req.body.staffNote || '').slice(0, 1000);
-    if (!['approve', 'fulfill'].includes(action))
-      throw new hxl.HxlError(400, 'action must be approve or fulfill');
+    if (!['request_info', 'approve', 'supervisor_approve', 'fulfill'].includes(action))
+      throw new hxl.HxlError(400, 'unsupported staff action');
     const channel = String(req.headers['x-hxl-channel'] || 'web').toLowerCase().slice(0, 32);
     res.json(await hxl.staffOrderAction(token, lookup, action, staffNote, s.tokens.instance_url, channel));
+  })
+);
+
+app.post(
+  '/api/orders/:lookup/respond',
+  route(async (req, res) => {
+    const s = session(req, res);
+    const token = requireTokens(s);
+    const lookup = String(req.params.lookup || '').slice(0, 40);
+    const customerMessage = String(req.body.customerMessage || '').trim().slice(0, 1000);
+    if (!customerMessage) throw new hxl.HxlError(400, 'customerMessage is required');
+    const channel = String(req.headers['x-hxl-channel'] || 'web').toLowerCase().slice(0, 32);
+    res.json(await hxl.respondToInformation(token, lookup, customerMessage, s.tokens.instance_url, channel));
   })
 );
 

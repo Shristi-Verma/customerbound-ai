@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HXL Order Card over Streamable HTTP - the entry point for hosts that cannot
+ * CustomerBound over Streamable HTTP - the entry point for hosts that cannot
  * launch a local process: ChatGPT (Developer Mode connector) and Slackbot
  * (MCP App). Same createServer() as the stdio path; only the transport differs.
  *
@@ -104,7 +104,7 @@ const http = createHttpServer(async (req, res) => {
 });
 
 http.listen(PORT, HOST, () => {
-  console.error(`HXL Order Card MCP (Streamable HTTP) on http://localhost:${PORT}`);
+  console.error(`CustomerBound MCP (Streamable HTTP) on http://localhost:${PORT}`);
   for (const [path, channel] of Object.entries(CHANNEL_BY_PATH)) {
     console.error(`  ${path.padEnd(14)} -> channel "${channel}"`);
   }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * HXL Order Card - an MCP app that renders the hxlOrderCard widget in Claude,
+ * CustomerBound - an MCP app that renders the governed Salesforce experience in Claude,
  * ChatGPT or Slackbot, and the seam between the two projects in this folder.
  *
  * Track B (this repo) answers "where does the UI show up".
@@ -334,7 +334,7 @@ const CARD_META = { ui: { resourceUri: WIDGET_URI }, 'ui/resourceUri': WIDGET_UR
 
 export function createServer() {
   const server = new McpServer(
-    { name: 'hxl-order-card', version: '1.1.0' },
+    { name: 'customerbound', version: '1.2.0' },
     {
       capabilities: {
         tools: {},
@@ -346,11 +346,11 @@ export function createServer() {
 
   registerAppResource(
     server,
-    'HXL Order Card',
+    'CustomerBound',
     WIDGET_URI,
     {
-      title: 'HXL Order Card',
-      description: 'A customer order card, scoped by Salesforce sharing',
+      title: 'CustomerBound',
+      description: 'A governed customer and operations experience, scoped by Salesforce identity and sharing',
       mimeType: RESOURCE_MIME_TYPE,
     },
     async () => ({
@@ -460,9 +460,9 @@ export function createServer() {
     server,
     'get_my_orders',
     {
-      title: 'My Orders',
+      title: 'My CustomerBound Activity',
       description:
-        'Open the interactive HXL Order Card for the signed-in Salesforce customer. Shows their ' +
+        'Open the interactive CustomerBound experience for the signed-in Salesforce user. Shows ' +
         'own orders only, scoped by Salesforce sharing to the Contact behind the access token. ' +
         'Use when the user asks to see their orders, or to demo the Headless Experience Layer.',
       inputSchema: {},

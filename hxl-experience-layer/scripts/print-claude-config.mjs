@@ -19,7 +19,7 @@ try {
 
 const block = {
   mcpServers: {
-    'hxl-order-card': {
+    customerbound: {
       command: node,
       args: [server],
       env: {

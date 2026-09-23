@@ -1,11 +1,11 @@
 {
-  "name": "hxl-order-card-mcp",
+  "name": "customerbound-mcp",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "MCP app that renders the HXL Order Card widget, sourced from a Headless Identity named-user token",
+  "description": "MCP app that renders the CustomerBound named-user Salesforce experience",
   "bin": {
-    "hxl-order-card-mcp": "./server.mjs"
+    "customerbound-mcp": "./server.mjs"
   },
   "scripts": {
     "start": "node server.mjs",

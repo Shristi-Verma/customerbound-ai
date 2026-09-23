@@ -58,6 +58,8 @@ The POC proves the architecture on one real MCP host with both customer and staf
 
 ## Live demo runbook
 
+In Claude, refer to the MCP experience simply as **CustomerBound**. For example: `Use CustomerBound to tell me who I am and show my assigned activity.`
+
 Target time: 10 to 12 minutes.
 
 ### Beat 1: establish identity

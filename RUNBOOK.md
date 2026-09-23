@@ -190,6 +190,12 @@ npm --prefix hxl-experience-layer run config
 
 Copy the generated server entry into Claude Desktop's MCP configuration, fully quit Claude Desktop, and reopen it. Keep the BFF running on port 3000. The generated configuration contains a local POC credential, so do not commit it or share screenshots containing it.
 
+The user-facing MCP server name is `customerbound`. Demo prompts should say:
+
+```text
+Use CustomerBound to tell me who I am and show my assigned activity.
+```
+
 ## 10. Test a hosted MCP surface
 
 Keep ports 3000 and 8787 running, then start a temporary tunnel:
